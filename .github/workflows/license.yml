@@ -1,0 +1,25 @@
+name: License
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  license-header:
+    name: Check license headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Mirrors `task common:license:check`; kept inline so CI needs no extra tooling.
+      - name: Verify Apache 2.0 headers on Go and frontend JS sources
+        run: >-
+          go run github.com/google/addlicense@v1.2.0
+          -check -l apache -c "Su Yang (soulteary)" -y 2026
+          -ignore "**/*.css" -ignore "**/*.html" -ignore "frontend/bindings/**"
+          internal pkg *.go frontend/src frontend/vite.config.js

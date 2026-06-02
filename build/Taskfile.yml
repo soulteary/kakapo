@@ -1,0 +1,163 @@
+version: '3'
+
+vars:
+  ADDLICENSE_VERSION: v1.2.0
+  LICENSE_HOLDER: Su Yang (soulteary)
+  LICENSE_YEAR: '2026'
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    cmds:
+      - go mod tidy
+
+  install:frontend:deps:
+    summary: Install frontend dependencies
+    dir: frontend
+    sources:
+      - package.json
+      - bun.lock
+    generates:
+      - node_modules
+    preconditions:
+      - sh: bun --version
+        msg: "Looks like bun isn't installed. Install it from https://bun.sh/"
+    cmds:
+      - bun install
+
+  build:frontend:
+    label: build:frontend (DEV={{.DEV}})
+    summary: Build the frontend project
+    dir: frontend
+    sources:
+      - "**/*"
+      - exclude: node_modules/**/*
+    generates:
+      - dist/**/*
+    deps:
+      - task: install:frontend:deps
+      - task: generate:bindings
+        vars:
+          BUILD_FLAGS:
+            ref: .BUILD_FLAGS
+    cmds:
+      - bun run {{.BUILD_COMMAND}}
+    env:
+      PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'
+    vars:
+      BUILD_COMMAND: '{{if eq .DEV "true"}}build:dev{{else}}build{{end}}'
+
+  frontend:vendor:puppertino:
+    summary: Fetches Puppertino CSS into frontend/public for consistent mobile styling
+    sources:
+      - frontend/public/puppertino/puppertino.css
+    generates:
+      - frontend/public/puppertino/puppertino.css
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p frontend/public/puppertino
+        # If bundled Puppertino exists, prefer it. Otherwise, try to fetch, but don't fail build on error.
+        if [ ! -f frontend/public/puppertino/puppertino.css ]; then
+          echo "No bundled Puppertino found. Attempting to fetch from GitHub..."
+          if curl -fsSL https://raw.githubusercontent.com/codedgar/Puppertino/main/dist/css/full.css -o frontend/public/puppertino/puppertino.css; then
+            curl -fsSL https://raw.githubusercontent.com/codedgar/Puppertino/main/LICENSE -o frontend/public/puppertino/LICENSE || true
+            echo "Puppertino CSS downloaded to frontend/public/puppertino/puppertino.css"
+          else
+            echo "Warning: Could not fetch Puppertino CSS. Proceeding without download since template may bundle it."
+          fi
+        else
+          echo "Using bundled Puppertino at frontend/public/puppertino/puppertino.css"
+        fi
+        # Ensure index.html includes Puppertino CSS and button classes
+        INDEX_HTML=frontend/index.html
+        if [ -f "$INDEX_HTML" ]; then
+          if ! grep -q 'href="/puppertino/puppertino.css"' "$INDEX_HTML"; then
+            # Insert Puppertino link tag after style.css link
+            awk '
+              /href="\/style.css"\/?/ && !x { print; print "    <link rel=\"stylesheet\" href=\"/puppertino/puppertino.css\"/>"; x=1; next }1
+            ' "$INDEX_HTML" > "$INDEX_HTML.tmp" && mv "$INDEX_HTML.tmp" "$INDEX_HTML"
+          fi
+          # Replace default .btn with Puppertino primary button classes if present
+          sed -E -i'' 's/class=\"btn\"/class=\"p-btn p-prim-col\"/g' "$INDEX_HTML" || true
+        fi
+
+  generate:bindings:
+    label: generate:bindings (BUILD_FLAGS={{.BUILD_FLAGS}})
+    summary: Generates bindings for the frontend
+    deps:
+      - task: go:mod:tidy
+    sources:
+      - "**/*.[jt]s"
+      - exclude: frontend/**/*
+      - frontend/bindings/**/*  # Rerun when switching between dev/production mode causes changes in output
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - frontend/bindings/**/*
+    cmds:
+      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true
+
+  generate:icons:
+    summary: Generates the Mac `.icns` (and the Icon Composer `Assets.car` only when Xcode's actool is available).
+    dir: build
+    sources:
+      - "appicon.png"
+      - "appicon.icon/**/*"
+    generates:
+      - "darwin/icons.icns"
+    cmds:
+      # 始终从 appicon.png 生成 icons.icns（仅需 Command Line Tools，可靠且可复现）。
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns
+      # 仅当检测到 Xcode 的 actool（编译 .icon 所需）时，才额外生成现代图标 Assets.car，
+      # 并在 Info.plist 中启用 CFBundleIconName=appicon。否则保持仅用 icons.icns，
+      # 避免回退到 Wails 默认图标导致打包后图标错误。
+      - |
+        set -euo pipefail
+        if xcrun --find actool >/dev/null 2>&1; then
+          echo "检测到 actool，生成 Icon Composer 资源 (Assets.car)..."
+          wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -iconcomposerinput appicon.icon -macassetdir darwin
+          # 启用 Assets.car：补回 CFBundleIconName（若不存在）。
+          for plist in darwin/Info.plist darwin/Info.dev.plist; do
+            if [ -f "$plist" ] && ! grep -q "CFBundleIconName" "$plist"; then
+              /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string appicon" "$plist" 2>/dev/null || true
+            fi
+          done
+        else
+          echo "未检测到 Xcode 的 actool（仅安装了 Command Line Tools）：跳过 Assets.car，使用 icons.icns。"
+          rm -f darwin/Assets.car
+        fi
+
+  dev:frontend:
+    summary: Runs the frontend in development mode
+    dir: frontend
+    deps:
+      - task: install:frontend:deps
+    cmds:
+      - bun run dev --port {{.VITE_PORT}} --strictPort
+
+  update:build-assets:
+    summary: Updates the build assets
+    dir: build
+    cmds:
+      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .
+
+  license:check:
+    summary: Verifies all Go and frontend JS sources carry the Apache 2.0 license header
+    cmds:
+      - >-
+        go run github.com/google/addlicense@{{.ADDLICENSE_VERSION}}
+        -check -l apache -c "{{.LICENSE_HOLDER}}" -y {{.LICENSE_YEAR}}
+        -ignore "**/*.css" -ignore "**/*.html" -ignore "frontend/bindings/**"
+        internal pkg *.go frontend/src frontend/vite.config.js
+
+  license:add:
+    summary: Adds the Apache 2.0 license header to Go and frontend JS sources missing it
+    cmds:
+      - >-
+        go run github.com/google/addlicense@{{.ADDLICENSE_VERSION}}
+        -l apache -c "{{.LICENSE_HOLDER}}" -y {{.LICENSE_YEAR}}
+        -ignore "**/*.css" -ignore "**/*.html" -ignore "frontend/bindings/**"
+        internal pkg *.go frontend/src frontend/vite.config.js

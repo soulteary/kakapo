@@ -1,0 +1,22 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:app": "vite",
+    "dev:translate": "npm_config_page=translate vite",
+    "build:translate": "npm_config_page=translate vite build --mode production",
+    "build:dev": "bun scripts/build-all-pages.mjs dev",
+    "build": "bun scripts/build-all-pages.mjs",
+    "build:app": "npm_config_page=app vite build --mode production",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@wailsio/runtime": "3.0.0-alpha.79"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

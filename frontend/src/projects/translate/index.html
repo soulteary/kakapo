@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <base href="/translate/"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+  <title>翻译 - Kakapo</title>
+</head>
+<body>
+<div id="app">
+  <header class="toolbar">
+    <div class="toolbar-logo" id="toolbarLogo" title="Kakapo">
+      <img src="kakapo.png" alt="Kakapo" class="toolbar-logo-img"/>
+      <span class="toolbar-logo-text">KAKAPO</span>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <div class="toolbar-direction">
+      <select id="sourceLang" class="lang-select" title="源语言"></select>
+      <button type="button" class="btn-icon" id="btnSwapLang" title="交换源/目标语言">⇄</button>
+      <select id="targetLang" class="lang-select" title="目标语言" multiple></select>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn-icon" id="btnSettings" title="设置"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="btn-icon-img btn-icon-img--lg"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg></button>
+      <button type="button" class="btn-icon" id="btnHistory" title="历史"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="btn-icon-img btn-icon-img--lg"><path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg></button>
+    </div>
+  </header>
+  <main class="main">
+    <div class="panel left">
+      <textarea class="textarea" id="input" placeholder="输入待翻译内容…"></textarea>
+    </div>
+    <div class="panel panel-results">
+      <div id="resultsPlaceholder" class="results-placeholder">译文将按目标语言分组显示在这里</div>
+      <div id="resultsContainer" class="results-container" hidden></div>
+    </div>
+  </main>
+  <footer class="footer">
+    <span class="status" id="status"></span>
+    <div class="actions">
+      <button type="button" class="btn primary" id="btnTranslate">翻译</button>
+      <button type="button" class="btn" id="btnSpeakSource" title="朗读输入框中的原文（按源语言）">朗读</button>
+      <button type="button" class="btn" id="btnBackTranslate" title="对所有卡片的译文执行反向翻译并显示在各自下方供核对">回译</button>
+      <button type="button" class="btn" id="btnCopy">复制</button>
+      <button type="button" class="btn" id="btnClear">清空</button>
+    </div>
+  </footer>
+</div>
+
+<div id="settingsOverlay" class="overlay" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">设置</h2>
+      <button type="button" class="btn-icon modal-close" id="btnSettingsClose"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="btn-icon-img"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <div class="providers-head">
+          <span>服务商（可同时启用多个，翻译时并行调用所有启用的模型）</span>
+          <button type="button" class="btn small" id="btnAddProvider">+ 添加服务商</button>
+        </div>
+        <div class="providers-list" id="settingsProvidersList"></div>
+      </div>
+      <div class="field">
+        <span>源语言（如 zh / en）</span>
+        <input type="text" id="settingsSourceLanguage" placeholder="zh"/>
+      </div>
+      <div class="field">
+        <span>目标语言（逗号分隔，如 en,ja）</span>
+        <input type="text" id="settingsTargetLanguages" placeholder="en"/>
+      </div>
+      <div class="field" id="settingsTemperatureField">
+        <span>Temperature（0–2，默认 0.2）</span>
+        <input type="number" id="settingsTemperature" min="0" max="2" step="0.1" placeholder="0.2"/>
+        <span class="field-hint" id="settingsTemperatureHint">kimi-k2 / deepseek 系列温度不可修改，使用云端默认配置</span>
+      </div>
+      <div class="field">
+        <span>超时（秒）</span>
+        <input type="number" id="settingsTimeout" min="5" max="120"/>
+      </div>
+      <div class="field">
+        <span>最大输入字数</span>
+        <input type="number" id="settingsMaxInputChars" min="100"/>
+      </div>
+      <label class="field checkbox"><input type="checkbox" id="settingsAutoCopy"/> 翻译后自动复制</label>
+      <label class="field checkbox"><input type="checkbox" id="settingsClearOnOpen"/> 打开时清空</label>
+      <div class="field">
+        <button type="button" class="btn" id="btnSettingsAbout">关于</button>
+        <button type="button" class="btn danger" id="btnSettingsQuit">退出</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" id="btnSettingsCancel">取消</button>
+      <button type="button" class="btn primary" id="btnSettingsSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="historyOverlay" class="overlay history-modal" hidden>
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">历史</h2>
+      <button type="button" class="btn-icon modal-close" id="btnHistoryClose"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="btn-icon-img"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <input type="text" id="historySearch" placeholder="搜索历史…"/>
+      </div>
+      <ul class="history-list" id="historyList"></ul>
+      <button type="button" class="btn" id="btnHistoryClear">清空历史</button>
+    </div>
+  </div>
+</div>
+
+<template id="providerCardTemplate">
+  <div class="provider-card">
+    <div class="provider-card-head">
+      <label class="provider-enabled" title="启用该服务商"><input type="checkbox" class="provider-enabled-input"/> 启用</label>
+      <select class="provider-type">
+        <option value="kimi">Kimi (Moonshot)</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="openai">OpenAI</option>
+        <option value="custom">自定义</option>
+      </select>
+      <button type="button" class="btn-icon provider-remove" title="移除该服务商">✕</button>
+    </div>
+    <div class="field">
+      <span>API Base URL</span>
+      <input type="text" class="provider-baseurl" placeholder="https://api.moonshot.cn/v1"/>
+      <span class="field-hint">例：OpenAI https://api.openai.com · Moonshot https://api.moonshot.cn/v1 · DeepSeek https://api.deepseek.com</span>
+    </div>
+    <div class="field">
+      <span>API Key</span>
+      <input type="password" class="provider-apikey" placeholder="留空表示不修改" autocomplete="off"/>
+      <span class="field-hint provider-apikey-hint"></span>
+      <label class="field checkbox"><input type="checkbox" class="provider-clearkey"/> 清除已保存的 Key</label>
+    </div>
+    <div class="field">
+      <span>模型（逗号分隔，可多个并行）</span>
+      <input type="text" class="provider-models" placeholder="kimi-k2.6"/>
+    </div>
+  </div>
+</template>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
