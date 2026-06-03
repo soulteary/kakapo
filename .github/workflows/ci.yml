@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 并发控制：同一分支/PR 的新提交会取消仍在进行的旧任务。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Go 代码质量与单元测试。借助 stub 文件（//go:build !darwin），后端可在 Linux 上编译，
+  # 因此这里用 ubuntu 跑得更快、更省钱。
+  test:
+    name: Go test & vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check gofmt
+        run: |
+          unformatted="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未通过 gofmt，请运行 'gofmt -w':"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: ignore
+
+  # 完整的桌面应用构建：在 macOS 上用项目真实的构建链（task + wails3 + bun）产出原生二进制与 .app 包。
+  build:
+    name: Build macOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # build:native 用 `git describe` 注入版本号，需要完整历史与 tag。
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install Wails3 CLI
+        # wails3 自带 task 运行器，无需额外安装 go-task。
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.97
+
+      - name: Package runnable .app bundle
+        # package 任务会先 build（生成 bindings、前端、原生二进制），再打成可运行的 .app（含 ad-hoc 签名）。
+        run: wails3 task package
+
+      - name: Zip .app bundle
+        # 用 ditto 压缩以保留 macOS 资源分支与代码签名，解压后即可直接运行。
+        run: |
+          cd bin
+          ditto -c -k --keepParent kakapo.app "kakapo-${{ runner.arch }}.app.zip"
+
+      - name: Upload runnable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: kakapo-darwin-${{ runner.arch }}
+          path: bin/kakapo-${{ runner.arch }}.app.zip
+          if-no-files-found: error

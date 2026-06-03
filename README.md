@@ -10,6 +10,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/soulteary/kakapo/actions/workflows/ci.yml">
+    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/soulteary/kakapo/ci.yml?branch=main&style=flat-square&label=CI" />
+  </a>
   <a href="https://github.com/soulteary/kakapo/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/soulteary/kakapo?style=flat-square" />
   </a>
