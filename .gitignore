@@ -2,6 +2,8 @@
 bin
 frontend/dist
 frontend/node_modules
-build/darwin/*
+# 仅忽略 build/darwin 下的生成产物，保留 Taskfile.yml / Info.plist 等构建必需的源文件。
+build/darwin/icons.icns
+build/darwin/Assets.car
 frontend/bindings/
 .DS_Store

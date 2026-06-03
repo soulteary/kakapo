@@ -36,6 +36,15 @@ jobs:
             exit 1
           fi
 
+      - name: Create placeholder frontend assets
+        # main.go 内嵌 //go:embed all:frontend/dist，server_translate.go 内嵌 //go:embed all:frontend/dist/translate。
+        # 后端的 vet/build/test 不需要真实前端产物，这里为每个页面放置占位文件以满足 embed 指令，避免编译失败。
+        run: |
+          for page in app translate; do
+            mkdir -p "frontend/dist/$page"
+            echo '<!doctype html><title>placeholder</title>' > "frontend/dist/$page/index.html"
+          done
+
       - name: go vet
         run: go vet ./...
 
