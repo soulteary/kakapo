@@ -22,6 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Linux GUI dependencies
+        # 根包及 internal/wails/* 引入 wails/v3/pkg/application，在 Linux 上通过 cgo/pkg-config
+        # 依赖 GTK4 与 WebKitGTK，否则 go vet/build/test 编译失败。
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
