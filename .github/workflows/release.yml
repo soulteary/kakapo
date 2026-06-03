@@ -1,0 +1,71 @@
+name: Release
+
+# 推送形如 v1.2.3 的 tag 时触发：构建 macOS universal 应用并发布到对应的 GitHub Release。
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # 创建 Release 并上传产物需要写权限。
+
+jobs:
+  release-macos:
+    name: Build & release macOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 需要完整历史与 tag，供 build 注入版本号。
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install Wails3 CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.97
+
+      - name: Warm up frontend deps, bindings & assets
+        # darwin:package:universal 会并行构建 amd64/arm64，两个分支会并发触发 bun install /
+        # 前端构建，争抢 node_modules 导致竞态失败。这里先串行生成一次，让并行阶段命中
+        # Task 的 sources/generates 指纹判定为“已最新”而跳过，规避竞态。
+        run: |
+          wails3 task common:install:frontend:deps
+          wails3 task common:generate:bindings
+          wails3 task common:build:frontend
+
+      - name: Package universal .app bundle
+        # 构建 arm64 + amd64 的 universal 二进制并打成可运行的 .app（含 ad-hoc 签名）。
+        # VERSION 取自 tag 名（如 v1.2.3），注入到 main.AppVersion。
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: wails3 task darwin:package:universal
+
+      - name: Zip .app bundle
+        # 用 ditto 压缩以保留 macOS 资源分支与代码签名，解压后即可直接运行。
+        id: zip
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          asset="kakapo-${VERSION}-macos-universal.app.zip"
+          cd bin
+          ditto -c -k --keepParent kakapo.app "$asset"
+          shasum -a 256 "$asset" > "$asset.sha256"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # 预发布标识：tag 含 -（如 v1.0.0-beta.1）时标记为 prerelease。
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            bin/${{ steps.zip.outputs.asset }}
+            bin/${{ steps.zip.outputs.asset }}.sha256
