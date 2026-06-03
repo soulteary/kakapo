@@ -1,4 +1,6 @@
 <p align="center">
+  <img src=".github/kakapo-banner.jpg" alt="Kakapo Banner" />
+
   <img src="./frontend/public/kakapo.png" alt="Kakapo" width="120" />
 </p>
 
@@ -365,6 +367,18 @@ go build ./...
 - 不要提交 API Key、`settings.json`、`history.json` 或其他敏感文件。
 - 平台相关能力建议使用 build tags 拆分实现（参考 `internal/secrets`、`internal/speech`），保证非 macOS 平台至少可编译或明确降级。
 - 上游 API 错误可以透传到界面，但日志与 UI 中应避免泄露敏感信息。
+
+---
+
+## 常见问题：软件无法打开
+
+![](.github/open-kakapo.jpg)
+
+如果打开软件遇到类似【未打开“kakapo”】的问题，
+
+> Apple无法验证“kakapo”是否包含可能危害 Mac 安全或泄漏隐私的恶意软件。
+
+打开“系统设置”，在安全选项卡中选择“仍要打开”应用即可。
 
 ---
 
