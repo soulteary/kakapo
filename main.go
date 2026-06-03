@@ -121,9 +121,14 @@ func main() {
 		Icon:            icon,
 		IconActive:      iconActive,
 		// 打开托盘窗口视为用户已查看结果：清零未读计数并移除 Dock 角标。
+		// 注意：本回调由系统托盘点击在 macOS 主线程同步触发，而
+		// dockService.RemoveBadge 内部使用 dispatch_sync(main_queue)。若在主线程
+		// 上直接调用会对主队列重入 dispatch_sync，触发 GCD 死锁检测并 SIGTRAP 崩溃。
+		// 因此放到独立 goroutine 中执行：回调先返回、主线程让出后，dispatch_sync
+		// 再调度回主线程即可安全完成。
 		OnShow: func() {
 			unreadTranslations.Store(0)
-			_ = dockService.RemoveBadge()
+			go func() { _ = dockService.RemoveBadge() }()
 		},
 	})
 

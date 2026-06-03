@@ -26,11 +26,16 @@ const DefaultTemperature = 0.2
 // ProviderConfig is one configured upstream provider. The API key is NOT stored
 // here; it lives in the Keychain under account = ID.
 type ProviderConfig struct {
-	ID      string   `json:"id"`
-	Type    string   `json:"type"` // kimi|deepseek|openai|custom (UI hint only)
-	BaseURL string   `json:"baseURL"`
-	Models  []string `json:"models"`
-	Enabled bool     `json:"enabled"`
+	ID      string `json:"id"`
+	Type    string `json:"type"` // kimi|deepseek|openai|custom (UI hint only)
+	BaseURL string `json:"baseURL"`
+	// EndpointMode selects how BaseURL becomes the request URL:
+	//   "" / "base" -> OpenAI base URL, auto-append /v1/chat/completions
+	//   "full"      -> use BaseURL as the complete endpoint, verbatim
+	// Empty (the default) preserves the original auto-append behavior.
+	EndpointMode string   `json:"endpointMode,omitempty"`
+	Models       []string `json:"models"`
+	Enabled      bool     `json:"enabled"`
 }
 
 // Settings holds non-secret app settings (API Keys are in Keychain, per provider).

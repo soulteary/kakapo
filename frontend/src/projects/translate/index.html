@@ -133,6 +133,14 @@
       <span class="field-hint">例：OpenAI https://api.openai.com · Moonshot https://api.moonshot.cn/v1 · DeepSeek https://api.deepseek.com</span>
     </div>
     <div class="field">
+      <span>地址模式</span>
+      <select class="provider-endpoint-mode">
+        <option value="base">Base URL（自动拼接 /v1/chat/completions）</option>
+        <option value="full">Full Endpoint（直接使用填写的完整地址）</option>
+      </select>
+      <span class="field-hint provider-endpoint-mode-hint"></span>
+    </div>
+    <div class="field">
       <span>API Key</span>
       <input type="password" class="provider-apikey" placeholder="留空表示不修改" autocomplete="off"/>
       <span class="field-hint provider-apikey-hint"></span>

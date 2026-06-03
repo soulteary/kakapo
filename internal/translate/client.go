@@ -56,18 +56,49 @@ type (
 	}
 )
 
+// EndpointMode controls how the request URL is derived from BaseURL.
+type EndpointMode string
+
+const (
+	// EndpointModeBaseURL treats BaseURL as an OpenAI-style base URL: the client
+	// appends /chat/completions when BaseURL already ends with /v1, otherwise
+	// /v1/chat/completions. This is the default (the empty zero value).
+	EndpointModeBaseURL EndpointMode = ""
+	// EndpointModeFull treats BaseURL as the complete Chat Completions endpoint
+	// and uses it verbatim (only a trailing slash is trimmed). Use this when the
+	// configured URL already includes the full path (e.g. a proxy/gateway, or a
+	// non-/v1 deployment).
+	EndpointModeFull EndpointMode = "full"
+)
+
+// NormalizeEndpointMode maps an arbitrary/legacy string to a known EndpointMode,
+// defaulting to EndpointModeBaseURL for empty or unrecognized values.
+func NormalizeEndpointMode(s string) EndpointMode {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case string(EndpointModeFull), "endpoint", "full_endpoint":
+		return EndpointModeFull
+	default:
+		return EndpointModeBaseURL
+	}
+}
+
 // Client is an OpenAI-compatible Chat Completions client.
 type Client struct {
 	BaseURL string
-	APIKey  string
-	Model   string
+	// EndpointMode selects how BaseURL is turned into the request URL. The zero
+	// value (EndpointModeBaseURL) auto-appends /v1/chat/completions.
+	EndpointMode EndpointMode
+	APIKey       string
+	Model        string
 	// Temperature controls generation randomness.
 	Temperature float64
 	Timeout     time.Duration
 	Client      *http.Client
 }
 
-// NewClient creates a client. BaseURL is normalized (trailing slash trimmed; /v1/chat/completions appended when calling).
+// NewClient creates a client. BaseURL is normalized (trailing slash trimmed).
+// The returned client uses EndpointModeBaseURL (auto-append /v1/chat/completions);
+// set EndpointMode on the result to switch to a full, verbatim endpoint.
 func NewClient(baseURL, apiKey, model string, timeoutSec int, temperature float64) *Client {
 	baseURL = strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
 	if timeoutSec <= 0 {
@@ -173,12 +204,31 @@ func truncateDetail(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
-// chatCompletionsURL returns the full URL for POST /v1/chat/completions.
+// chatCompletionsURL returns the full URL for the Chat Completions request,
+// honoring the client's EndpointMode.
 func (c *Client) chatCompletionsURL() string {
-	if strings.HasSuffix(c.BaseURL, "/v1") {
-		return c.BaseURL + "/chat/completions"
+	return chatCompletionsURL(c.BaseURL, c.EndpointMode)
+}
+
+// chatCompletionsURL builds the request URL from a base URL and an endpoint
+// mode. It is a pure function so the URL-shaping rules can be tested directly.
+//
+//   - EndpointModeBaseURL (default): append /chat/completions when baseURL ends
+//     with /v1, otherwise /v1/chat/completions. This accommodates common base
+//     URLs like "https://api.openai.com", "https://api.deepseek.com" and
+//     "https://api.moonshot.cn/v1", all resolving to .../v1/chat/completions.
+//   - EndpointModeFull: use baseURL verbatim (trailing slash trimmed), for users
+//     who configure the complete endpoint (e.g. one already ending in
+//     /chat/completions, or a proxied/non-/v1 path) themselves.
+func chatCompletionsURL(baseURL string, mode EndpointMode) string {
+	baseURL = strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
+	if mode == EndpointModeFull {
+		return baseURL
 	}
-	return c.BaseURL + "/v1/chat/completions"
+	if strings.HasSuffix(baseURL, "/v1") {
+		return baseURL + "/chat/completions"
+	}
+	return baseURL + "/v1/chat/completions"
 }
 
 // Translate calls the Chat Completions API and returns the assistant content (trimmed).

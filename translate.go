@@ -133,15 +133,16 @@ type HistoryPostBody struct {
 // sent to the frontend in plaintext: APIKeySet/APIKeyMask describe its state,
 // and SetAPIKey/ClearAPIKey are write-only directives.
 type ProviderDTO struct {
-	ID          string   `json:"id"`
-	Type        string   `json:"type"`
-	BaseURL     string   `json:"baseURL"`
-	Models      []string `json:"models"`
-	Enabled     bool     `json:"enabled"`
-	APIKeySet   bool     `json:"apiKeySet"`
-	APIKeyMask  string   `json:"apiKeyMask"`
-	SetAPIKey   string   `json:"setAPIKey,omitempty"`
-	ClearAPIKey bool     `json:"clearAPIKey"`
+	ID           string   `json:"id"`
+	Type         string   `json:"type"`
+	BaseURL      string   `json:"baseURL"`
+	EndpointMode string   `json:"endpointMode"`
+	Models       []string `json:"models"`
+	Enabled      bool     `json:"enabled"`
+	APIKeySet    bool     `json:"apiKeySet"`
+	APIKeyMask   string   `json:"apiKeyMask"`
+	SetAPIKey    string   `json:"setAPIKey,omitempty"`
+	ClearAPIKey  bool     `json:"clearAPIKey"`
 }
 
 // SettingsDTO is the settings payload for GetSettings/SaveSettings.
@@ -432,11 +433,12 @@ func (a *TranslateApp) GetSettings() (*SettingsDTO, error) {
 	dto.Providers = make([]ProviderDTO, len(cfg.Providers))
 	for i, p := range cfg.Providers {
 		pd := ProviderDTO{
-			ID:      p.ID,
-			Type:    p.Type,
-			BaseURL: p.BaseURL,
-			Models:  p.Models,
-			Enabled: p.Enabled,
+			ID:           p.ID,
+			Type:         p.Type,
+			BaseURL:      p.BaseURL,
+			EndpointMode: p.EndpointMode,
+			Models:       p.Models,
+			Enabled:      p.Enabled,
 		}
 		if key, err := store.Get(secrets.KeychainService, p.ID); err == nil && key != "" {
 			pd.APIKeySet = true
@@ -486,11 +488,12 @@ func (a *TranslateApp) SaveSettings(settings *SettingsDTO) error {
 			typ = config.ProviderTypeFromBaseURL(baseURL)
 		}
 		cfg.Providers = append(cfg.Providers, config.ProviderConfig{
-			ID:      id,
-			Type:    typ,
-			BaseURL: baseURL,
-			Models:  normalizeModels(pd.Models),
-			Enabled: pd.Enabled,
+			ID:           id,
+			Type:         typ,
+			BaseURL:      baseURL,
+			EndpointMode: string(translate.NormalizeEndpointMode(pd.EndpointMode)),
+			Models:       normalizeModels(pd.Models),
+			Enabled:      pd.Enabled,
 		})
 
 		if pd.ClearAPIKey {
@@ -539,6 +542,7 @@ func (a *TranslateApp) SaveSettings(settings *SettingsDTO) error {
 // translation paths.
 func runTranslate(cfg config.Settings, pm config.ProviderModel, apiKey, prompt, text string) (string, int64, error) {
 	client := translate.NewClient(pm.Provider.BaseURL, apiKey, pm.Model, cfg.TimeoutSeconds, cfg.EffectiveTemperature())
+	client.EndpointMode = translate.NormalizeEndpointMode(pm.Provider.EndpointMode)
 	start := time.Now()
 	out, err := client.Translate(prompt, text)
 	return out, time.Since(start).Milliseconds(), err

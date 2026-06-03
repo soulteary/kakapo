@@ -141,6 +141,19 @@ function detectProviderFromBaseURL(baseURL) {
   return 'custom';
 }
 
+/** 归一化地址模式，未知/空值回退为 base（与后端 NormalizeEndpointMode 保持一致） */
+function normalizeEndpointMode(mode) {
+  return String(mode || '').trim().toLowerCase() === 'full' ? 'full' : 'base';
+}
+
+/** 预览最终请求地址（与后端 chatCompletionsURL 保持一致） */
+function resolveEndpointPreview(baseURL, mode) {
+  const base = String(baseURL || '').trim().replace(/\/+$/, '');
+  if (!base) return '';
+  if (normalizeEndpointMode(mode) === 'full') return base;
+  return base.endsWith('/v1') ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
+}
+
 /** kimi-k2 / deepseek 系列使用云端默认温度，不发送 temperature */
 function modelUsesCloudDefaultTemp(name) {
   const m = String(name || '').toLowerCase().trim();
@@ -315,20 +328,38 @@ function updateTemperatureFieldVisibility() {
 function applyProviderToCard(card, providerKey, { fillModel = false } = {}) {
   const baseInput = card.querySelector('.provider-baseurl');
   const modelsInput = card.querySelector('.provider-models');
+  const modeSel = card.querySelector('.provider-endpoint-mode');
   const preset = PROVIDER_PRESETS[providerKey];
   if (preset) {
     baseInput.value = preset.baseURL;
     baseInput.readOnly = true;
     baseInput.classList.add('input-readonly');
+    // 预设服务商使用标准 Base URL，锁定为 base 模式。
+    if (modeSel) {
+      modeSel.value = 'base';
+      modeSel.disabled = true;
+    }
     if (fillModel && modelsInput && !modelsInput.value.trim()) {
       modelsInput.value = preset.model;
     }
   } else {
-    // custom：允许自由编辑 Base URL
+    // custom：允许自由编辑 Base URL 与地址模式
     baseInput.readOnly = false;
     baseInput.classList.remove('input-readonly');
+    if (modeSel) modeSel.disabled = false;
   }
+  updateEndpointModeHint(card);
   updateTemperatureFieldVisibility();
+}
+
+/** 刷新地址模式的提示文案（展示最终请求地址预览） */
+function updateEndpointModeHint(card) {
+  const baseInput = card.querySelector('.provider-baseurl');
+  const modeSel = card.querySelector('.provider-endpoint-mode');
+  const hint = card.querySelector('.provider-endpoint-mode-hint');
+  if (!hint || !modeSel) return;
+  const preview = resolveEndpointPreview(baseInput ? baseInput.value : '', modeSel.value);
+  hint.textContent = preview ? `请求地址：${preview}` : '填写 Base URL 后将在此预览最终请求地址';
 }
 
 /** 渲染一张服务商卡片并挂载事件；provider 为 GetSettings 返回的对象（可空，表示新建） */
@@ -337,6 +368,7 @@ function renderProviderCard(provider) {
   const card = frag.querySelector('.provider-card');
   const typeSel = card.querySelector('.provider-type');
   const baseInput = card.querySelector('.provider-baseurl');
+  const modeSel = card.querySelector('.provider-endpoint-mode');
   const modelsInput = card.querySelector('.provider-models');
   const enabledInput = card.querySelector('.provider-enabled-input');
   const apiKeyInput = card.querySelector('.provider-apikey');
@@ -350,11 +382,17 @@ function renderProviderCard(provider) {
   typeSel.value = type;
   enabledInput.checked = provider ? !!p.enabled : true;
   baseInput.value = p.baseURL || (PROVIDER_PRESETS[type] ? PROVIDER_PRESETS[type].baseURL : '');
+  if (modeSel) modeSel.value = normalizeEndpointMode(p.endpointMode);
   modelsInput.value = Array.isArray(p.models) ? p.models.join(', ') : (p.models || '');
   if (PROVIDER_PRESETS[type]) {
     baseInput.readOnly = true;
     baseInput.classList.add('input-readonly');
+    if (modeSel) {
+      modeSel.value = 'base';
+      modeSel.disabled = true;
+    }
   }
+  updateEndpointModeHint(card);
   if (p.apiKeySet) {
     apiKeyHint.textContent = p.apiKeyMask ? `已设置 ${p.apiKeyMask}` : '已设置';
     apiKeyInput.placeholder = '输入新 Key 可覆盖';
@@ -369,6 +407,8 @@ function renderProviderCard(provider) {
   typeSel.addEventListener('change', () => {
     applyProviderToCard(card, typeSel.value, { fillModel: true });
   });
+  baseInput.addEventListener('input', () => updateEndpointModeHint(card));
+  if (modeSel) modeSel.addEventListener('change', () => updateEndpointModeHint(card));
   modelsInput.addEventListener('input', updateTemperatureFieldVisibility);
   removeBtn.addEventListener('click', () => {
     card.remove();
@@ -385,6 +425,8 @@ function collectProviders() {
   settingsProvidersList.querySelectorAll('.provider-card').forEach((card) => {
     const type = card.querySelector('.provider-type').value;
     const baseURL = card.querySelector('.provider-baseurl').value.trim();
+    const modeSel = card.querySelector('.provider-endpoint-mode');
+    const endpointMode = normalizeEndpointMode(modeSel ? modeSel.value : 'base');
     const modelsArr = parseModels(card.querySelector('.provider-models').value);
     const enabled = card.querySelector('.provider-enabled-input').checked;
     const setAPIKey = card.querySelector('.provider-apikey').value.trim();
@@ -393,6 +435,7 @@ function collectProviders() {
       id: card.dataset.id || '',
       type,
       baseURL,
+      endpointMode,
       models: modelsArr,
       enabled,
       apiKeySet: false,

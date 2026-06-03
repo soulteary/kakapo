@@ -204,6 +204,77 @@ func TestClient_Translate_baseURL_with_v1(t *testing.T) {
 	}
 }
 
+func TestChatCompletionsURL(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		mode    EndpointMode
+		want    string
+	}{
+		{"base bare host", "https://api.openai.com", EndpointModeBaseURL, "https://api.openai.com/v1/chat/completions"},
+		{"base with v1", "https://api.moonshot.cn/v1", EndpointModeBaseURL, "https://api.moonshot.cn/v1/chat/completions"},
+		{"base trailing slash", "https://api.deepseek.com/", EndpointModeBaseURL, "https://api.deepseek.com/v1/chat/completions"},
+		{"base v1 trailing slash", "https://api.moonshot.cn/v1/", EndpointModeBaseURL, "https://api.moonshot.cn/v1/chat/completions"},
+		{"full verbatim", "https://gw.example.com/proxy/chat/completions", EndpointModeFull, "https://gw.example.com/proxy/chat/completions"},
+		{"full trailing slash trimmed", "https://gw.example.com/v2/chat/completions/", EndpointModeFull, "https://gw.example.com/v2/chat/completions"},
+		{"full does not append", "https://api.openai.com/v1", EndpointModeFull, "https://api.openai.com/v1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := chatCompletionsURL(tc.baseURL, tc.mode); got != tc.want {
+				t.Errorf("chatCompletionsURL(%q, %q) = %q, want %q", tc.baseURL, tc.mode, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeEndpointMode(t *testing.T) {
+	cases := map[string]EndpointMode{
+		"":              EndpointModeBaseURL,
+		"base":          EndpointModeBaseURL,
+		"openai":        EndpointModeBaseURL,
+		"anything-else": EndpointModeBaseURL,
+		"full":          EndpointModeFull,
+		"FULL":          EndpointModeFull,
+		" Full ":        EndpointModeFull,
+		"endpoint":      EndpointModeFull,
+		"full_endpoint": EndpointModeFull,
+	}
+	for in, want := range cases {
+		if got := NormalizeEndpointMode(in); got != want {
+			t.Errorf("NormalizeEndpointMode(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestClient_Translate_fullEndpoint_usesURLVerbatim(t *testing.T) {
+	var path string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		_ = json.NewEncoder(w).Encode(ChatCompletionsResponse{
+			Choices: []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			}{{Message: struct {
+				Content string `json:"content"`
+			}{Content: "ok"}}},
+		})
+	}))
+	defer server.Close()
+
+	// Full-endpoint mode: the user configured the complete path, so the client
+	// must NOT append /v1/chat/completions.
+	client := NewClient(server.URL+"/custom/chat/completions", "sk", "m", 5, 0.2)
+	client.EndpointMode = EndpointModeFull
+	if _, err := client.Translate("", "x"); err != nil {
+		t.Fatalf("Translate: %v", err)
+	}
+	if path != "/custom/chat/completions" {
+		t.Errorf("path = %s, want /custom/chat/completions", path)
+	}
+}
+
 func TestClient_Translate_401(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
