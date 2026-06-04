@@ -29,6 +29,8 @@
 
 ## Kakapo 是什么？
 
+![](.github/kakapo-ui.jpg)
+
 Kakapo 是一款开源桌面翻译应用，核心目标不是“调用一次模型给一个答案”，而是把翻译变成可比较、可回放、可迭代的工作流。
 
 它可以对接 OpenAI 兼容的 `Chat Completions` 接口，例如 Kimi / Moonshot、DeepSeek、OpenAI 或你自己的兼容服务；翻译时可同时启用多个服务商、多个模型、多个目标语言，并将结果并行展示，方便你快速比较风格、准确性与延迟。
