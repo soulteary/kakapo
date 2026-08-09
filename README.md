@@ -96,6 +96,39 @@ Kakapo 也是一份完整的 [Wails v3](https://v3alpha.wails.io/) 桌面应用�
 
 ---
 
+## 安装
+
+### Homebrew（macOS，推荐）
+
+Kakapo 已发布到 [soulteary/homebrew-tap](https://github.com/soulteary/homebrew-tap)，macOS 用户可直接通过 Homebrew Cask 一键安装：
+
+```bash
+# 添加 Tap（仅需一次）
+brew tap soulteary/tap
+
+# 安装 Kakapo（macOS universal）
+brew install --cask soulteary/tap/kakapo
+```
+
+升级与卸载：
+
+```bash
+# 升级到最新版本
+brew upgrade --cask kakapo
+
+# 卸载
+brew uninstall --cask kakapo
+
+# 移除 Tap（可选）
+brew untap soulteary/tap
+```
+
+> Cask 版本为 macOS universal 安装包，安装后可在启动台或应用程序中直接打开。若首次打开遇到「无法验证开发者」提示，请参考文末的 [软件无法打开](#常见问题软件无法打开) 说明。
+
+如果你希望从源码构建或参与开发，请继续阅读下面的「快速开始」。
+
+---
+
 ## 快速开始
 
 ### 1. 克隆项目
