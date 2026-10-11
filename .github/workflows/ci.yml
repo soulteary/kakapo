@@ -86,7 +86,7 @@ jobs:
 
       - name: Install Wails3 CLI
         # wails3 自带 task 运行器，无需额外安装 go-task。
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.97
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
 
       - name: Package runnable .app bundle
         # package 任务会先 build（生成 bindings、前端、原生二进制），再打成可运行的 .app（含 ad-hoc 签名）。
