@@ -22,6 +22,7 @@
   <img alt="Wails" src="https://img.shields.io/badge/Wails-v3%20alpha-ff4f8b?style=flat-square" />
   <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" />
   <img alt="Bun" src="https://img.shields.io/badge/Bun-ready-000000?style=flat-square&logo=bun&logoColor=white" />
+  <a href="./.github/go-test-report.md"><img alt="Go Test Coverage" src="./.github/coverage.svg" /></a> <a href="./.github/goreportcard-report.md"><img alt="Go Report Card" src="./.github/goreportcard.svg" /></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20first-lightgrey?style=flat-square" />
 </p>
 
