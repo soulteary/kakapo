@@ -23,3 +23,5 @@ Raw profiles/test logs are artifacts, never committed.
 Linux backend reports install GTK4, WebKitGTK 6.0 and libsoup 3 development
 packages and use placeholder embedded frontend assets. The real macOS desktop
 application/package build is preserved separately and is not covered by this report.
+
+Published releases with a CI skip annotation use the release-event fallback. Ordinary releases use the tag-push report run; the release gate skips duplicate tests. Stable artifacts containing only reports under `.github` are downloaded into that directory explicitly; mixed report/document artifacts retain the repository hierarchy.
