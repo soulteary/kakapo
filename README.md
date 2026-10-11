@@ -20,7 +20,7 @@
   </a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.27.2-00ADD8?style=flat-square&logo=go&logoColor=white" />
   <img alt="Wails" src="https://img.shields.io/badge/Wails-v3%20alpha-ff4f8b?style=flat-square" />
-  <img alt="Vite" src="https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white" />
+  <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" />
   <img alt="Bun" src="https://img.shields.io/badge/Bun-ready-000000?style=flat-square&logo=bun&logoColor=white" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20first-lightgrey?style=flat-square" />
 </p>
@@ -87,7 +87,7 @@ Kakapo 也是一份完整的 [Wails v3](https://v3alpha.wails.io/) 桌面应用�
 | --- | --- |
 | 桌面框架 | Wails v3 / Go / 原生 WebView |
 | 后端服务 | Go 1.27.2、Echo v4、Wails Service |
-| 前端 | Vite 5、原生 JavaScript、多页面构建 |
+| 前端 | Vite 8、原生 JavaScript、多页面构建 |
 | 任务编排 | Task（`Taskfile.yml`） |
 | 依赖管理 | Go Modules、Bun |
 | 配置存储 | 用户配置目录下的 `settings.json` |
