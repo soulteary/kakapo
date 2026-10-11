@@ -30,7 +30,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Install Wails3 CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.97
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
 
       - name: Warm up frontend deps, bindings & assets
         # darwin:package:universal 会并行构建 amd64/arm64，两个分支会并发触发 bun install /

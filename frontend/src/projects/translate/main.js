@@ -168,7 +168,7 @@ function parseModels(str) {
 /** 无翻译/清空时 status 循环展示的文案 */
 const STATUS_IDLE_MESSAGES = [
   '自豪的使用开源技术栈制作', 
-  '基于 Golang 1.26 & Wails v3.0.0-beta.5 构建',
+  '基于 Golang 1.27.2 & Wails v3.0.0-beta.28 构建',
   '你今日的克制与笨拙，正在悄悄长成锋芒。',
   '雨落在身上是冷的，落在心里就成了润泽。',
   '人生最难的不是翻山，是不把自己交给灰尘。',

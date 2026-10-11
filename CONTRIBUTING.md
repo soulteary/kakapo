@@ -10,7 +10,7 @@
 
 ## 环境要求
 
-- Go `1.26`
+- Go `1.27.2`
 - [Bun](https://bun.sh/)（前端依赖安装与构建）
 - Wails CLI：`wails3`
 - [Task](https://taskfile.dev/)：`task`
