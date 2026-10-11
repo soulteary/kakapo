@@ -1,3 +1,5 @@
+
+[![Go Test Coverage](./.github/coverage.svg)](./.github/go-test-report.md) [![Go Report Card](./.github/goreportcard.svg)](./.github/goreportcard-report.md)
 <p align="center">
   <img src=".github/kakapo-banner.jpg" alt="Kakapo Banner" />
 
