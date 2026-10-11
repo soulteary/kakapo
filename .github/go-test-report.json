@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "tests": {
+    "total": 26,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "coverage": {
+    "covered_statements": 206,
+    "total_statements": 903,
+    "percentage": 22.81,
+    "threshold": 0
+  },
+  "packages": [
+    {
+      "name": ".",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    },
+    {
+      "name": "internal/config",
+      "status": "pass",
+      "tests": 8,
+      "failed": 0,
+      "coverage": 64.37
+    },
+    {
+      "name": "internal/history",
+      "status": "pass",
+      "tests": 3,
+      "failed": 0,
+      "coverage": 64.35
+    },
+    {
+      "name": "internal/secrets",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    },
+    {
+      "name": "internal/speech",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    },
+    {
+      "name": "internal/translate",
+      "status": "pass",
+      "tests": 15,
+      "failed": 0,
+      "coverage": 65.52
+    },
+    {
+      "name": "internal/wails/events",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    },
+    {
+      "name": "internal/wails/menu",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    },
+    {
+      "name": "internal/wails/splash",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    },
+    {
+      "name": "internal/wails/tray",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    },
+    {
+      "name": "pkg/echo",
+      "status": "no_tests",
+      "tests": 0,
+      "failed": 0,
+      "coverage": 0
+    }
+  ],
+  "failures": null
+}
