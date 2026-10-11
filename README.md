@@ -142,7 +142,7 @@ cd kakapo
 
 需要安装：
 
-- Go `1.26`
+- Go `1.27.2`
 - [Bun](https://bun.sh/)
 - Wails CLI：`wails3`
 - Task：`task`
