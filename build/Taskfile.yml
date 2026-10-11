@@ -110,7 +110,7 @@ tasks:
       - "darwin/icons.icns"
     cmds:
       # 始终从 appicon.png 生成 icons.icns（仅需 Command Line Tools，可靠且可复现）。
-      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename darwin/icon.ico
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename ""
       # 仅当检测到 Xcode 的 actool（编译 .icon 所需）时，才额外生成现代图标 Assets.car，
       # 并在 Info.plist 中启用 CFBundleIconName=appicon。否则保持仅用 icons.icns，
       # 避免回退到 Wails 默认图标导致打包后图标错误。
@@ -118,7 +118,7 @@ tasks:
         set -euo pipefail
         if xcrun --find actool >/dev/null 2>&1; then
           echo "检测到 actool，生成 Icon Composer 资源 (Assets.car)..."
-          wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -iconcomposerinput appicon.icon -macassetdir darwin
+          wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename "" -iconcomposerinput appicon.icon -macassetdir darwin
           # 启用 Assets.car：补回 CFBundleIconName（若不存在）。
           for plist in darwin/Info.plist darwin/Info.dev.plist; do
             if [ -f "$plist" ] && ! grep -q "CFBundleIconName" "$plist"; then
