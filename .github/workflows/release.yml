@@ -60,8 +60,8 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          # 预发布标识：tag 含 -（如 v1.0.0-beta.1）时标记为 prerelease。
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          # Calendar release revisions such as -r1 are stable releases.
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
           generate_release_notes: true
           files: |
             bin/${{ steps.zip.outputs.asset }}
