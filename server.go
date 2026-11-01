@@ -77,8 +77,8 @@ func (s *EchoService) ServiceStartup(ctx context.Context, options application.Se
 	s.app = application.Get()
 
 	// 注册可由前端触发的事件处理
-	s.app.Event.On("echo-api-event", func(event *application.CustomEvent) {
-		s.app.Logger.Info("Received event from frontend", "data", event.Data)
+	s.app.Event.On("echo-api-event", func(_ *application.CustomEvent) {
+		s.app.Logger.Info("Received event from frontend")
 		s.app.Event.Emit("echo-api-response", map[string]interface{}{
 			"message": "Response from Echo API Service",
 			"time":    time.Now().Format(time.RFC3339),
@@ -136,7 +136,7 @@ func (s *EchoService) setupRoutes() {
 		users.POST("", func(c echo.Context) error {
 			var newUser User
 			if err := c.Bind(&newUser); err != nil {
-				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid user payload"})
 			}
 			s.mu.Lock()
 			defer s.mu.Unlock()

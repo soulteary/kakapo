@@ -18,10 +18,13 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
+	"github.com/soulteary/kakapo/internal/persistence"
 	"io/fs"
 	"log"
 	"mime"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/labstack/echo/v4"
@@ -173,7 +176,7 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 			Models          []string `json:"models"`
 		}
 		if err := json.NewDecoder(c.Request().Body).Decode(&body); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid JSON: " + err.Error()})
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request payload"})
 		}
 		// Legacy: only "text" (or no targetLanguages/models) -> single model, zh->en, return TranslationResult
 		useLegacy := body.Text != "" && len(body.TargetLanguages) == 0 && len(body.Models) == 0
@@ -201,7 +204,7 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 		}
 		settings, err := s.translateApp.GetSettings()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": safeFailureMessage(err)})
 		}
 		return c.JSON(http.StatusOK, settings)
 	})
@@ -212,10 +215,10 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 		}
 		var dto SettingsDTO
 		if err := json.NewDecoder(c.Request().Body).Decode(&dto); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid JSON: " + err.Error()})
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request payload"})
 		}
 		if err := s.translateApp.SaveSettings(&dto); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": safeFailureMessage(err)})
 		}
 		return c.NoContent(http.StatusOK)
 	})
@@ -227,7 +230,7 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 		query := c.QueryParam("q")
 		entries, err := s.translateApp.GetHistory(query)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": safeFailureMessage(err)})
 		}
 		if entries == nil {
 			entries = []HistoryEntry{}
@@ -241,12 +244,12 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 		}
 		var body HistoryPostBody
 		if err := json.NewDecoder(c.Request().Body).Decode(&body); err != nil {
-			log.Printf("[TRANSLATE] POST /api/history Decode error: %v", err)
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			log.Printf("[TRANSLATE] POST /api/history invalid request payload")
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request payload"})
 		}
 		if err := s.translateApp.AddHistory(&body); err != nil {
-			log.Printf("[TRANSLATE] POST /api/history AddHistory error: %v", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			log.Printf("[TRANSLATE] POST /api/history AddHistory error (%T)", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": safeFailureMessage(err)})
 		}
 		// 通知主进程刷新 Dock 角标（未读翻译计数）。
 		if app := application.Get(); app != nil {
@@ -269,7 +272,7 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "service not ready"})
 		}
 		if err := s.translateApp.ClearHistory(); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": safeFailureMessage(err)})
 		}
 		return c.NoContent(http.StatusOK)
 	})
@@ -282,7 +285,7 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 			Language string `json:"language"`
 		}
 		if err := json.NewDecoder(c.Request().Body).Decode(&body); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid JSON: " + err.Error()})
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request payload"})
 		}
 		text := body.Text
 		if text == "" {
@@ -296,8 +299,21 @@ func (s *TranslateWebService) setupTranslateRoutes() {
 			if err == speech.ErrUnsupported {
 				return c.JSON(http.StatusNotImplemented, map[string]string{"error": "当前系统不支持朗读（仅支持 macOS）"})
 			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": safeFailureMessage(err)})
 		}
 		return c.NoContent(http.StatusNoContent)
 	})
+}
+
+// safeFailureMessage preserves an uncertain commit outcome without exposing
+// filesystem paths, decoder values or arbitrary backend error text.
+func safeFailureMessage(err error) string {
+	var committed *persistence.CommittedError
+	if errors.As(err, &committed) {
+		return "file replacement committed; directory sync failed; inspect current data before retrying"
+	}
+	if errors.Is(err, os.ErrPermission) {
+		return "本地存储权限不足，请检查配置目录"
+	}
+	return translate.ErrorMessage(err)
 }

@@ -2,6 +2,7 @@
 
 ## v2026.11.02
 
+- Omit arbitrary frontend event payloads and JSON decoder details from logs and error responses. Malformed input still returns HTTP 400; valid request and event response shapes are unchanged.
 - Keep provider error bodies, malformed success bodies and low-level transport/read errors out of translation diagnostics. Preserve error kinds and HTTP status; retain `APIError.Detail` for source compatibility without populating or formatting it.
 - Preserve committed settings and history when a replacement write fails. Sync a private same-directory temporary file, atomically replace the destination and sync its directory. Disclose post-replacement sync uncertainty; reject symlink, non-regular and read-only destinations.
 - Report history deletion failures instead of returning success while data remains. An already absent history file remains a successful clear.

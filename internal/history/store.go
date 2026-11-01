@@ -150,7 +150,7 @@ func (s *Store) save(list []Entry) error {
 		return err
 	}
 	if err := persistence.WriteFile(s.path, data); err != nil {
-		log.Printf("[Kakapo] 历史写入失败 %s: %v", s.path, err)
+		log.Printf("[Kakapo] 历史写入失败 (%T)", err)
 		return err
 	}
 	return nil

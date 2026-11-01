@@ -384,7 +384,7 @@ task common:license:add
 
 Linux 用于后端构建、静态检查和测试，需要 `libgtk-4-dev`、`libwebkitgtk-6.0-dev`、`libsoup-3.0-dev` 及 C 编译工具链。后端验证时可按 CI 为 `frontend/dist/app/index.html` 和 `frontend/dist/translate/index.html` 创建占位资源，以满足 `go:embed`；占位资源不能用于发布。非 macOS 的 Keychain 是不持久化密钥的兼容 stub，朗读返回不支持；仓库不发布 Linux 桌面包。
 
-访问日志默认启用，可设置 `KAKAPO_HTTP_LOG=0`、`false`、`off` 或 `no` 关闭（忽略大小写及首尾空白）。该变量不关闭业务错误或启动日志；日志输出不应包含凭据或敏感正文。
+访问日志默认启用，可设置 `KAKAPO_HTTP_LOG=0`、`false`、`off` 或 `no` 关闭（忽略大小写及首尾空白）。该变量不关闭业务错误或启动日志；日志输出不应包含凭据或敏感正文。访问日志记录静态路由模式，未知路径和方法使用固定标记，不记录实际路径参数或查询正文；未提交响应的错误按 Echo 错误状态分类，错误仍交给原处理链。
 
 后端常用检查：
 
@@ -403,6 +403,7 @@ go build ./...
 - 修改 `build/config.yml` 中的 `info` 或 `fileAssociations` 后，执行 `task common:update:build-assets`。
 - 不要提交 API Key、`settings.json`、`history.json` 或其他敏感文件。
 - 平台相关能力建议使用 build tags 拆分实现（参考 `internal/secrets`、`internal/speech`），保证非 macOS 平台至少可编译或明确降级。
+- 示例事件日志不记录任意前端正文；JSON 解码失败返回固定错误，不反射请求字段值。
 - 上游错误正文可能回显 API Key 或输入内容。翻译客户端仅保留错误类型与 HTTP 状态，不再将上游错误正文、异常成功响应正文、底层网络或读取错误详情写入诊断；正常成功的译文仍按既有方式返回。
 
 ---
