@@ -175,7 +175,7 @@ type SettingsDTO struct {
 func (a *TranslateApp) TranslateZhToEn(text string) (*TranslationResult, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return nil, &translate.ValidationError{Message:"请输入要翻译的内容"}
+		return nil, &translate.ValidationError{Message: "请输入要翻译的内容"}
 	}
 
 	var cfg config.Settings
@@ -193,7 +193,7 @@ func (a *TranslateApp) TranslateZhToEn(text string) (*TranslationResult, error) 
 			return translate.ErrSettingsPending
 		}
 		if text != "" && cfg.MaxInputChars > 0 && len([]rune(text)) > cfg.MaxInputChars {
-			return &translate.ValidationError{Message:fmt.Sprintf("输入超过 %d 字，请缩短后重试",cfg.MaxInputChars)}
+			return &translate.ValidationError{Message: fmt.Sprintf("输入超过 %d 字，请缩短后重试", cfg.MaxInputChars)}
 		}
 
 		var ok bool
@@ -232,7 +232,7 @@ func (a *TranslateApp) TranslateZhToEn(text string) (*TranslationResult, error) 
 func (a *TranslateApp) TranslateParallel(text, sourceLang string, targetLangs, models []string) (*MultiTranslationResult, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return nil, &translate.ValidationError{Message:"请输入要翻译的内容"}
+		return nil, &translate.ValidationError{Message: "请输入要翻译的内容"}
 	}
 	var cfg config.Settings
 	var providerModels []config.ProviderModel
@@ -249,7 +249,7 @@ func (a *TranslateApp) TranslateParallel(text, sourceLang string, targetLangs, m
 			return translate.ErrSettingsPending
 		}
 		if cfg.MaxInputChars > 0 && len([]rune(text)) > cfg.MaxInputChars {
-			return &translate.ValidationError{Message:fmt.Sprintf("输入超过 %d 字，请缩短后重试",cfg.MaxInputChars)}
+			return &translate.ValidationError{Message: fmt.Sprintf("输入超过 %d 字，请缩短后重试", cfg.MaxInputChars)}
 		}
 		if sourceLang == "" {
 			sourceLang = cfg.EffectiveSourceLanguage()

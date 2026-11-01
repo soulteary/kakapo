@@ -11,7 +11,7 @@
 ## 环境要求
 
 - Go `1.27.3`
-- [Bun](https://bun.sh/)（前端依赖安装与构建）
+- [Bun](https://bun.sh/) `1.4.4`（本轮验证并在 CI 固定的版本，用于前端依赖安装与构建）
 - Wails CLI：`wails3`
 - [Task](https://taskfile.dev/)：`task`
 - 推荐在 macOS 开发：项目包含 Keychain、`say` 朗读与 darwin 打包流程，部分能力在其他平台会降级或不可用。
