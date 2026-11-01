@@ -139,3 +139,9 @@ go test ./internal/history -run '^$' -bench BenchmarkHistoryDecode -benchmem -co
 ## 行为准则
 
 请保持友善、专业与建设性的沟通。欢迎提问与讨论，我们乐于帮助新贡献者上手。
+
+## 凭据一致性回归
+
+`credential_updates_linux_test.go` 使用合成凭据后端与真实配置文件，覆盖提交失败、丢失确认、并发快照与显式恢复；`credential_crash_linux_test.go` 使用真实私有文件作为凭据服务替身，并通过 SIGKILL 和新进程验证待恢复状态。它们不验证原生 macOS Keychain 的授权弹窗、锁定状态或系统实现。不得将模拟后端故障写成真实 Keychain 集成结果。
+
+修改恢复逻辑时，确认单条与并行翻译都读取待处理状态，写入凭据前标记已持久化，且无论失败还是确认丢失，都不会通过更换 Provider ID、删除标记或忽略删除错误恢复请求。前端新建身份重试测试：`bun test src/projects/translate/provider-id.test.js`（在 `frontend` 目录执行）。

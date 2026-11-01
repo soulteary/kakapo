@@ -118,7 +118,7 @@ func TestErrorKindsAndPrompts(t *testing.T) {
 	if ErrorMessage(nil) != "" {
 		t.Fatal("nil error must have no message")
 	}
-	for _, err := range []error{ErrNoAPIKey, ErrInvalidConfig, ErrNetwork, ErrTimeout, ErrUnauthorized, ErrRateLimited, ErrServer, ErrBadResponse, errors.New("local failure")} {
+	for _, err := range []error{ErrSettingsPending, ErrNoAPIKey, ErrInvalidConfig, ErrNetwork, ErrTimeout, ErrUnauthorized, ErrRateLimited, ErrServer, ErrBadResponse, errors.New("local failure")} {
 		if ErrorMessage(fmt.Errorf("wrapped: %w", err)) == "" {
 			t.Fatalf("missing message for %v", err)
 		}

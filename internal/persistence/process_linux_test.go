@@ -59,7 +59,7 @@ func TestProcessTerminationAtCommitBoundary(t *testing.T) {
 			if err := cmd.Start(); err != nil {
 				t.Fatal(err)
 			}
-			defer cmd.Process.Kill()
+			defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
 			ready := make(chan string, 1)
 			go func() { line, _ := bufio.NewReader(pipe).ReadString('\n'); ready <- line }()
 			select {

@@ -20,6 +20,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +31,9 @@ import (
 	"github.com/soulteary/kakapo/internal/secrets"
 	"github.com/soulteary/kakapo/internal/translate"
 )
+
+// settingsMu protects configuration and credential snapshots within one process.
+var settingsMu sync.RWMutex
 
 // maxParallelTranslations bounds the number of concurrent upstream requests in
 // TranslateParallel, preventing rate limiting when many languages × models are
@@ -142,28 +147,30 @@ type HistoryPostBody struct {
 // sent to the frontend in plaintext: APIKeySet/APIKeyMask describe its state,
 // and SetAPIKey/ClearAPIKey are write-only directives.
 type ProviderDTO struct {
-	ID           string   `json:"id"`
-	Type         string   `json:"type"`
-	BaseURL      string   `json:"baseURL"`
-	EndpointMode string   `json:"endpointMode"`
-	Models       []string `json:"models"`
-	Enabled      bool     `json:"enabled"`
-	APIKeySet    bool     `json:"apiKeySet"`
-	APIKeyMask   string   `json:"apiKeyMask"`
-	SetAPIKey    string   `json:"setAPIKey,omitempty"`
-	ClearAPIKey  bool     `json:"clearAPIKey"`
+	ID                      string   `json:"id"`
+	Type                    string   `json:"type"`
+	BaseURL                 string   `json:"baseURL"`
+	EndpointMode            string   `json:"endpointMode"`
+	Models                  []string `json:"models"`
+	Enabled                 bool     `json:"enabled"`
+	APIKeyNeedsConfirmation bool     `json:"apiKeyNeedsConfirmation"`
+	APIKeySet               bool     `json:"apiKeySet"`
+	APIKeyMask              string   `json:"apiKeyMask"`
+	SetAPIKey               string   `json:"setAPIKey,omitempty"`
+	ClearAPIKey             bool     `json:"clearAPIKey"`
 }
 
 // SettingsDTO is the settings payload for GetSettings/SaveSettings.
 type SettingsDTO struct {
-	Providers       []ProviderDTO `json:"providers"`
-	SourceLanguage  string        `json:"sourceLanguage,omitempty"`
-	TargetLanguages []string      `json:"targetLanguages,omitempty"`
-	TimeoutSeconds  int           `json:"timeoutSeconds"`
-	Temperature     float64       `json:"temperature"`
-	MaxInputChars   int           `json:"maxInputChars"`
-	AutoCopy        bool          `json:"autoCopy"`
-	ClearOnOpen     bool          `json:"clearOnOpen"`
+	PendingCredentialIDs []string      `json:"pendingCredentialIDs,omitempty"`
+	Providers            []ProviderDTO `json:"providers"`
+	SourceLanguage       string        `json:"sourceLanguage,omitempty"`
+	TargetLanguages      []string      `json:"targetLanguages,omitempty"`
+	TimeoutSeconds       int           `json:"timeoutSeconds"`
+	Temperature          float64       `json:"temperature"`
+	MaxInputChars        int           `json:"maxInputChars"`
+	AutoCopy             bool          `json:"autoCopy"`
+	ClearOnOpen          bool          `json:"clearOnOpen"`
 }
 
 // TranslateZhToEn translates Chinese to English via OpenAI-compatible Chat Completions.
@@ -173,22 +180,38 @@ func (a *TranslateApp) TranslateZhToEn(text string) (*TranslationResult, error) 
 		return nil, fmt.Errorf("请输入要翻译的内容")
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("加载配置失败: %w", err)
-	}
-	if text != "" && cfg.MaxInputChars > 0 && len([]rune(text)) > cfg.MaxInputChars {
-		return nil, fmt.Errorf("输入超过 %d 字，请缩短后重试", cfg.MaxInputChars)
-	}
+	var cfg config.Settings
+	var pm config.ProviderModel
+	var apiKey string
+	if err := func() error {
+		settingsMu.RLock()
+		defer settingsMu.RUnlock()
+		var err error
+		cfg, err = config.Load()
+		if err != nil {
+			return fmt.Errorf("加载配置失败: %w", err)
+		}
+		if len(cfg.PendingCredentialIDs) > 0 {
+			return translate.ErrSettingsPending
+		}
+		if text != "" && cfg.MaxInputChars > 0 && len([]rune(text)) > cfg.MaxInputChars {
+			return fmt.Errorf("输入超过 %d 字，请缩短后重试", cfg.MaxInputChars)
+		}
 
-	pm, ok := cfg.FirstProviderModel()
-	if !ok {
-		return nil, translate.ErrInvalidConfig
-	}
-	store := a.secretStore()
-	apiKey, err := store.Get(secrets.KeychainService, pm.Provider.ID)
-	if err != nil || apiKey == "" {
-		return nil, translate.ErrNoAPIKey
+		var ok bool
+		pm, ok = cfg.FirstProviderModel()
+		if !ok {
+			return translate.ErrInvalidConfig
+		}
+		store := a.secretStore()
+		apiKey, err = store.Get(secrets.KeychainService, pm.Provider.ID)
+		if err != nil || apiKey == "" {
+			return translate.ErrNoAPIKey
+		}
+
+		return nil
+	}(); err != nil {
+		return nil, err
 	}
 
 	out, latency, err := runTranslate(cfg, pm, apiKey, translate.SystemPrompt, text)
@@ -213,48 +236,63 @@ func (a *TranslateApp) TranslateParallel(text, sourceLang string, targetLangs, m
 	if text == "" {
 		return nil, fmt.Errorf("请输入要翻译的内容")
 	}
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("加载配置失败: %w", err)
-	}
-	if cfg.MaxInputChars > 0 && len([]rune(text)) > cfg.MaxInputChars {
-		return nil, fmt.Errorf("输入超过 %d 字，请缩短后重试", cfg.MaxInputChars)
-	}
-	if sourceLang == "" {
-		sourceLang = cfg.EffectiveSourceLanguage()
-	}
-	if len(targetLangs) == 0 {
-		targetLangs = cfg.EffectiveTargetLanguages()
-	}
-
-	providerModels := cfg.EffectiveProviderModels()
-	// Optional filter: if the caller passes explicit model names, only run those.
-	if len(models) > 0 {
-		want := make(map[string]bool, len(models))
-		for _, m := range models {
-			want[strings.TrimSpace(m)] = true
+	var cfg config.Settings
+	var providerModels []config.ProviderModel
+	var keyCache map[string]string
+	if err := func() error {
+		settingsMu.RLock()
+		defer settingsMu.RUnlock()
+		var err error
+		cfg, err = config.Load()
+		if err != nil {
+			return fmt.Errorf("加载配置失败: %w", err)
 		}
-		var filtered []config.ProviderModel
-		for _, pm := range providerModels {
-			if want[pm.Model] {
-				filtered = append(filtered, pm)
+		if len(cfg.PendingCredentialIDs) > 0 {
+			return translate.ErrSettingsPending
+		}
+		if cfg.MaxInputChars > 0 && len([]rune(text)) > cfg.MaxInputChars {
+			return fmt.Errorf("输入超过 %d 字，请缩短后重试", cfg.MaxInputChars)
+		}
+		if sourceLang == "" {
+			sourceLang = cfg.EffectiveSourceLanguage()
+		}
+		if len(targetLangs) == 0 {
+			targetLangs = cfg.EffectiveTargetLanguages()
+		}
+
+		providerModels = cfg.EffectiveProviderModels()
+		// Optional filter: if the caller passes explicit model names, only run those.
+		if len(models) > 0 {
+			want := make(map[string]bool, len(models))
+			for _, m := range models {
+				want[strings.TrimSpace(m)] = true
 			}
+			var filtered []config.ProviderModel
+			for _, pm := range providerModels {
+				if want[pm.Model] {
+					filtered = append(filtered, pm)
+				}
+			}
+			providerModels = filtered
 		}
-		providerModels = filtered
-	}
-	if len(providerModels) == 0 {
-		return nil, translate.ErrInvalidConfig
-	}
+		if len(providerModels) == 0 {
+			return translate.ErrInvalidConfig
+		}
 
-	// Fetch (and cache) each provider's API key once.
-	store := a.secretStore()
-	keyCache := make(map[string]string)
-	for _, pm := range providerModels {
-		if _, ok := keyCache[pm.Provider.ID]; ok {
-			continue
+		// Fetch (and cache) each provider's API key once.
+		store := a.secretStore()
+		keyCache = make(map[string]string)
+		for _, pm := range providerModels {
+			if _, ok := keyCache[pm.Provider.ID]; ok {
+				continue
+			}
+			key, _ := store.Get(secrets.KeychainService, pm.Provider.ID)
+			keyCache[pm.Provider.ID] = key
 		}
-		key, _ := store.Get(secrets.KeychainService, pm.Provider.ID)
-		keyCache[pm.Provider.ID] = key
+
+		return nil
+	}(); err != nil {
+		return nil, err
 	}
 
 	// Build the full task list (provider×model × targetLang) so results keep a
@@ -425,22 +463,36 @@ func (a *TranslateApp) ClearHistory() error {
 
 // GetSettings returns current settings for the UI (API keys from Keychain, never plaintext).
 func (a *TranslateApp) GetSettings() (*SettingsDTO, error) {
+	settingsMu.RLock()
+	defer settingsMu.RUnlock()
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, err
 	}
 	dto := &SettingsDTO{
-		SourceLanguage:  cfg.SourceLanguage,
-		TargetLanguages: cfg.TargetLanguages,
-		TimeoutSeconds:  cfg.TimeoutSeconds,
-		Temperature:     cfg.EffectiveTemperature(),
-		MaxInputChars:   cfg.MaxInputChars,
-		AutoCopy:        cfg.AutoCopy,
-		ClearOnOpen:     cfg.ClearOnOpen,
+		PendingCredentialIDs: cfg.PendingCredentialIDs,
+		SourceLanguage:       cfg.SourceLanguage,
+		TargetLanguages:      cfg.TargetLanguages,
+		TimeoutSeconds:       cfg.TimeoutSeconds,
+		Temperature:          cfg.EffectiveTemperature(),
+		MaxInputChars:        cfg.MaxInputChars,
+		AutoCopy:             cfg.AutoCopy,
+		ClearOnOpen:          cfg.ClearOnOpen,
 	}
 	store := a.secretStore()
-	dto.Providers = make([]ProviderDTO, len(cfg.Providers))
-	for i, p := range cfg.Providers {
+	providers := append([]config.ProviderConfig(nil), cfg.Providers...)
+	seen := make(map[string]bool, len(providers))
+	for _, p := range providers {
+		seen[p.ID] = true
+	}
+	for _, id := range cfg.PendingCredentialIDs {
+		if !seen[id] {
+			providers = append(providers, config.ProviderConfig{ID: id, Type: "custom"})
+			seen[id] = true
+		}
+	}
+	dto.Providers = make([]ProviderDTO, len(providers))
+	for i, p := range providers {
 		pd := ProviderDTO{
 			ID:           p.ID,
 			Type:         p.Type,
@@ -453,69 +505,72 @@ func (a *TranslateApp) GetSettings() (*SettingsDTO, error) {
 			pd.APIKeySet = true
 			pd.APIKeyMask = maskAPIKey(key)
 		}
+		for _, id := range cfg.PendingCredentialIDs {
+			if id == p.ID {
+				pd.APIKeyNeedsConfirmation = true
+			}
+		}
 		dto.Providers[i] = pd
 	}
 	return dto, nil
 }
 
-// SaveSettings persists settings (JSON for config, Keychain for per-provider API keys).
+// SaveSettings persists settings with a durable marker around credential changes.
+// A failed/ambiguous credential operation keeps translations blocked until the
+// affected credentials are explicitly set, cleared or removed in a later save.
 func (a *TranslateApp) SaveSettings(settings *SettingsDTO) error {
+	settingsMu.Lock()
+	defer settingsMu.Unlock()
 	if settings == nil {
 		return fmt.Errorf("settings is nil")
 	}
-
-	// Load the previous config to detect removed providers (whose keys we delete).
-	prev, _ := config.Load()
-	prevIDs := make(map[string]bool, len(prev.Providers))
+	if math.IsNaN(settings.Temperature) || math.IsInf(settings.Temperature, 0) {
+		return translate.ErrInvalidConfig
+	}
+	prev, err := config.Load()
+	if err != nil {
+		return err
+	}
+	prevIDs := make(map[string]bool)
 	for _, p := range prev.Providers {
+		if strings.TrimSpace(p.ID) == "" || prevIDs[p.ID] {
+			return translate.ErrInvalidConfig
+		}
 		prevIDs[p.ID] = true
 	}
-
-	store := a.secretStore()
-	temperature := settings.Temperature
-	cfg := config.Settings{
-		SourceLanguage:  strings.TrimSpace(settings.SourceLanguage),
-		TargetLanguages: settings.TargetLanguages,
-		TimeoutSeconds:  settings.TimeoutSeconds,
-		Temperature:     &temperature,
-		MaxInputChars:   settings.MaxInputChars,
-		AutoCopy:        settings.AutoCopy,
-		ClearOnOpen:     settings.ClearOnOpen,
+	for _, id := range prev.PendingCredentialIDs {
+		if strings.TrimSpace(id) == "" {
+			return translate.ErrInvalidConfig
+		}
 	}
-
+	temperature := settings.Temperature
+	cfg := config.Settings{SourceLanguage: strings.TrimSpace(settings.SourceLanguage), TargetLanguages: settings.TargetLanguages, TimeoutSeconds: settings.TimeoutSeconds, Temperature: &temperature, MaxInputChars: settings.MaxInputChars, AutoCopy: settings.AutoCopy, ClearOnOpen: settings.ClearOnOpen}
+	type change struct {
+		clear  bool
+		secret string
+	}
+	changes := make(map[string]change)
 	keepIDs := make(map[string]bool)
 	for _, pd := range settings.Providers {
 		id := strings.TrimSpace(pd.ID)
 		if id == "" {
 			id = genProviderID()
 		}
+		if keepIDs[id] {
+			return translate.ErrInvalidConfig
+		}
 		keepIDs[id] = true
-
 		baseURL := strings.TrimSpace(pd.BaseURL)
 		typ := strings.TrimSpace(pd.Type)
 		if typ == "" {
 			typ = config.ProviderTypeFromBaseURL(baseURL)
 		}
-		cfg.Providers = append(cfg.Providers, config.ProviderConfig{
-			ID:           id,
-			Type:         typ,
-			BaseURL:      baseURL,
-			EndpointMode: string(translate.NormalizeEndpointMode(pd.EndpointMode)),
-			Models:       normalizeModels(pd.Models),
-			Enabled:      pd.Enabled,
-		})
-
-		if pd.ClearAPIKey {
-			_ = store.Delete(secrets.KeychainService, id)
-		}
-		if secret := strings.TrimSpace(pd.SetAPIKey); secret != "" {
-			if err := store.Set(secrets.KeychainService, id, secret); err != nil {
-				return fmt.Errorf("保存 API Key 失败: %w", err)
-			}
+		cfg.Providers = append(cfg.Providers, config.ProviderConfig{ID: id, Type: typ, BaseURL: baseURL, EndpointMode: string(translate.NormalizeEndpointMode(pd.EndpointMode)), Models: normalizeModels(pd.Models), Enabled: pd.Enabled})
+		secret := strings.TrimSpace(pd.SetAPIKey)
+		if pd.ClearAPIKey || secret != "" {
+			changes[id] = change{pd.ClearAPIKey, secret}
 		}
 	}
-
-	// Apply global defaults.
 	d := config.Default()
 	if cfg.SourceLanguage == "" {
 		cfg.SourceLanguage = d.SourceLanguage
@@ -531,19 +586,49 @@ func (a *TranslateApp) SaveSettings(settings *SettingsDTO) error {
 	}
 	if len(cfg.Providers) == 0 {
 		cfg.Providers = d.Providers
-	}
-
-	if err := config.Save(cfg); err != nil {
-		return err
-	}
-
-	// Delete keys of providers removed in this save.
-	for id := range prevIDs {
-		if !keepIDs[id] {
-			_ = store.Delete(secrets.KeychainService, id)
+		for _, p := range cfg.Providers {
+			keepIDs[p.ID] = true
 		}
 	}
-	return nil
+	for id := range prevIDs {
+		if !keepIDs[id] {
+			changes[id] = change{clear: true}
+		}
+	}
+	for _, id := range prev.PendingCredentialIDs {
+		if !keepIDs[id] {
+			changes[id] = change{clear: true}
+		} else if _, ok := changes[id]; !ok {
+			return translate.ErrSettingsPending
+		}
+	}
+	if len(changes) > 0 {
+		ids := make([]string, 0, len(changes))
+		for id := range changes {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		pending := prev
+		pending.PendingCredentialIDs = ids
+		if err := config.Save(pending); err != nil {
+			return err
+		}
+		store := a.secretStore()
+		for _, id := range ids {
+			op := changes[id]
+			if op.clear {
+				if err := store.Delete(secrets.KeychainService, id); err != nil {
+					return translate.ErrSettingsPending
+				}
+			}
+			if op.secret != "" {
+				if err := store.Set(secrets.KeychainService, id, op.secret); err != nil {
+					return translate.ErrSettingsPending
+				}
+			}
+		}
+	}
+	return config.Save(cfg)
 }
 
 // runTranslate performs one Chat Completions call for the given provider/model,
