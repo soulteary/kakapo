@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { ensureProviderID } from './provider-id.js';
 import './style.css';
 
 import { Application } from '@wailsio/runtime';
@@ -377,7 +378,7 @@ function renderProviderCard(provider) {
   const removeBtn = card.querySelector('.provider-remove');
 
   const p = provider || {};
-  card.dataset.id = p.id || '';
+  ensureProviderID(card, p.id);
   const type = p.type || (p.baseURL ? detectProviderFromBaseURL(p.baseURL) : 'kimi');
   typeSel.value = type;
   enabledInput.checked = provider ? !!p.enabled : true;
@@ -393,7 +394,12 @@ function renderProviderCard(provider) {
     }
   }
   updateEndpointModeHint(card);
-  if (p.apiKeySet) {
+  if (p.apiKeyNeedsConfirmation) {
+    apiKeyHint.textContent = p.baseURL
+      ? '显示的是上次已提交的地址；请先确认目标，再重新填写或清空 API Key'
+      : '此服务商未完成保存；请重新填写目标与 Key，或移除此项后保存';
+    apiKeyInput.placeholder = '重新输入 Key 以确认';
+  } else if (p.apiKeySet) {
     apiKeyHint.textContent = p.apiKeyMask ? `已设置 ${p.apiKeyMask}` : '已设置';
     apiKeyInput.placeholder = '输入新 Key 可覆盖';
   } else {
@@ -964,6 +970,9 @@ function openSettings() {
       settingsAutoCopy.checked = !!s.autoCopy;
       settingsClearOnOpen.checked = !!s.clearOnOpen;
       updateTemperatureFieldVisibility();
+      if (Array.isArray(s.pendingCredentialIDs) && s.pendingCredentialIDs.length) {
+        setStatus('上次设置更新未完成，翻译已暂停。当前显示已提交的设置；请确认目标地址，再处理待确认的 API Key 后保存', true);
+      }
     })
     .catch(() => {});
 }

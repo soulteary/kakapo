@@ -21,14 +21,15 @@ import (
 
 // Sentinel errors for UI mapping (see ErrorMessage).
 var (
-	ErrNoAPIKey      = errors.New("err_no_api_key")
-	ErrInvalidConfig = errors.New("err_invalid_config")
-	ErrNetwork       = errors.New("err_network")
-	ErrTimeout       = errors.New("err_timeout")
-	ErrUnauthorized  = errors.New("err_unauthorized")
-	ErrRateLimited   = errors.New("err_rate_limited")
-	ErrServer        = errors.New("err_server")
-	ErrBadResponse   = errors.New("err_bad_response")
+	ErrSettingsPending = errors.New("err_settings_pending")
+	ErrNoAPIKey        = errors.New("err_no_api_key")
+	ErrInvalidConfig   = errors.New("err_invalid_config")
+	ErrNetwork         = errors.New("err_network")
+	ErrTimeout         = errors.New("err_timeout")
+	ErrUnauthorized    = errors.New("err_unauthorized")
+	ErrRateLimited     = errors.New("err_rate_limited")
+	ErrServer          = errors.New("err_server")
+	ErrBadResponse     = errors.New("err_bad_response")
 )
 
 // APIError carries a sentinel kind and HTTP status without upstream body text.
@@ -66,6 +67,8 @@ func ErrorMessage(err error) string {
 // baseMessage maps a known sentinel error to its generic user-facing message.
 func baseMessage(err error) string {
 	switch {
+	case errors.Is(err, ErrSettingsPending):
+		return "上次设置更新未完成，翻译已暂停。请核对服务商地址，重新输入或清空待确认的 API Key 后保存"
 	case errors.Is(err, ErrNoAPIKey):
 		return "未配置 API Key，请在设置中填写"
 	case errors.Is(err, ErrInvalidConfig):

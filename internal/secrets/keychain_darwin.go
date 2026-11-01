@@ -47,7 +47,9 @@ func (KeychainStore) Set(service, account, secret string) error {
 	item.SetAccessible(keychain.AccessibleWhenUnlocked)
 	err := keychain.AddItem(item)
 	if err == keychain.ErrorDuplicateItem {
-		_ = keychain.DeleteGenericPasswordItem(service, account)
+		if err := keychain.DeleteGenericPasswordItem(service, account); err != nil && err != keychain.ErrorItemNotFound {
+			return err
+		}
 		return keychain.AddItem(item)
 	}
 	return err
@@ -55,5 +57,9 @@ func (KeychainStore) Set(service, account, secret string) error {
 
 // Delete removes the secret.
 func (KeychainStore) Delete(service, account string) error {
-	return keychain.DeleteGenericPasswordItem(service, account)
+	err := keychain.DeleteGenericPasswordItem(service, account)
+	if err == keychain.ErrorItemNotFound {
+		return nil
+	}
+	return err
 }

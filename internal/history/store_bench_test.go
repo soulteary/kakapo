@@ -50,3 +50,19 @@ func BenchmarkHistoryDecode(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkHistoryAdd(b *testing.B) {
+	s := &Store{path: b.TempDir() + "/history.json"}
+	for i := 0; i < maxEntries; i++ {
+		if err := s.Add(Entry{Input: "benchmark", Output: "translated", CreatedAt: int64(i)}); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		if err := s.Add(Entry{Input: "benchmark", Output: "translated", CreatedAt: 100}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

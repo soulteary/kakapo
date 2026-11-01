@@ -40,10 +40,13 @@ type ProviderConfig struct {
 
 // Settings holds non-secret app settings (API Keys are in Keychain, per provider).
 type Settings struct {
-	Providers       []ProviderConfig `json:"providers,omitempty"`
-	SourceLanguage  string           `json:"sourceLanguage,omitempty"`  // e.g. "zh"
-	TargetLanguages []string         `json:"targetLanguages,omitempty"` // e.g. ["en", "ja"]
-	TimeoutSeconds  int              `json:"timeoutSeconds"`
+	// PendingCredentialIDs blocks translation after an incomplete credential/config update.
+	// It contains provider identifiers only, never API keys.
+	PendingCredentialIDs []string         `json:"pendingCredentialIDs,omitempty"`
+	Providers            []ProviderConfig `json:"providers,omitempty"`
+	SourceLanguage       string           `json:"sourceLanguage,omitempty"`  // e.g. "zh"
+	TargetLanguages      []string         `json:"targetLanguages,omitempty"` // e.g. ["en", "ja"]
+	TimeoutSeconds       int              `json:"timeoutSeconds"`
 	// Temperature is a pointer so a deliberate 0 (deterministic output) can be
 	// distinguished from "not set" (nil). Use EffectiveTemperature to read it.
 	Temperature   *float64 `json:"temperature,omitempty"`
