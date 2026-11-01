@@ -16,6 +16,7 @@ package config
 
 import (
 	"encoding/json"
+	"github.com/soulteary/kakapo/internal/persistence"
 	"os"
 	"path/filepath"
 )
@@ -131,5 +132,5 @@ func SaveToPath(s Settings, path string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0600)
+	return persistence.WriteFile(path, data)
 }

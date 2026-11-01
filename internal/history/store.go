@@ -17,6 +17,7 @@ package history
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/soulteary/kakapo/internal/persistence"
 	"log"
 	"os"
 	"path/filepath"
@@ -148,7 +149,7 @@ func (s *Store) save(list []Entry) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(s.path, data, 0600); err != nil {
+	if err := persistence.WriteFile(s.path, data); err != nil {
 		log.Printf("[Kakapo] 历史写入失败 %s: %v", s.path, err)
 		return err
 	}
