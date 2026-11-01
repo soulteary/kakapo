@@ -52,6 +52,26 @@ jobs:
             echo '<!doctype html><title>placeholder</title>' > "frontend/dist/$page/index.html"
           done
 
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install pinned Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
+
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Generate frontend bindings
+        run: wails3 generate bindings -f '' -clean=true
+
+      - name: Test stable provider identities
+        working-directory: frontend
+        run: bun test src/projects/translate/provider-id.test.js --coverage
+
+      - name: Build frontend on Linux
+        working-directory: frontend
+        run: bun run build
+
       - name: go vet
         run: go vet ./...
 

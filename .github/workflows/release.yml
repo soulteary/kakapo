@@ -60,6 +60,16 @@ jobs:
           shasum -a 256 "$asset" > "$asset.sha256"
           echo "asset=$asset" >> "$GITHUB_OUTPUT"
 
+      - name: Upload universal preview for verification
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kakapo-universal-preview
+          path: |
+            bin/${{ steps.zip.outputs.asset }}
+            bin/${{ steps.zip.outputs.asset }}.sha256
+          if-no-files-found: error
+
       - name: Publish GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
