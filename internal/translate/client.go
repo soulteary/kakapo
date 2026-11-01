@@ -160,50 +160,6 @@ func profileForModel(model string) modelProfile {
 	}
 }
 
-// extractErrorDetail reads an error response body and returns a concise,
-// human-readable detail. It understands the common OpenAI/Moonshot error shapes
-// ({"error":{"message":...}} / {"error":"..."} / {"message":...}) and falls back
-// to the raw (truncated) body text.
-func extractErrorDetail(body io.Reader) string {
-	raw, err := io.ReadAll(io.LimitReader(body, 8192))
-	if err != nil || len(raw) == 0 {
-		return ""
-	}
-	var parsed struct {
-		Error struct {
-			Message string `json:"message"`
-			Type    string `json:"type"`
-			Code    string `json:"code"`
-		} `json:"error"`
-		Message string `json:"message"`
-	}
-	if json.Unmarshal(raw, &parsed) == nil {
-		if parsed.Error.Message != "" {
-			return parsed.Error.Message
-		}
-		if parsed.Message != "" {
-			return parsed.Message
-		}
-	}
-	// error may be a bare string: {"error":"..."}
-	var alt struct {
-		Error string `json:"error"`
-	}
-	if json.Unmarshal(raw, &alt) == nil && alt.Error != "" {
-		return alt.Error
-	}
-	return truncateDetail(strings.TrimSpace(string(raw)), 300)
-}
-
-// truncateDetail shortens s to at most n runes, appending an ellipsis if cut.
-func truncateDetail(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n]) + "…"
-}
-
 // chatCompletionsURL returns the full URL for the Chat Completions request,
 // honoring the client's EndpointMode.
 func (c *Client) chatCompletionsURL() string {
@@ -271,7 +227,7 @@ func (c *Client) Translate(systemPrompt, userText string) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.chatCompletionsURL(), bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return "", ErrInvalidConfig
 	}
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -281,35 +237,34 @@ func (c *Client) Translate(systemPrompt, userText string) (string, error) {
 		if ctx.Err() != nil {
 			return "", ErrTimeout
 		}
-		return "", fmt.Errorf("%w: %v", ErrNetwork, err)
+		return "", ErrNetwork
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		detail := extractErrorDetail(resp.Body)
 		switch {
 		case resp.StatusCode == http.StatusUnauthorized:
-			return "", newAPIError(ErrUnauthorized, resp.StatusCode, detail)
+			return "", newAPIError(ErrUnauthorized, resp.StatusCode)
 		case resp.StatusCode == http.StatusTooManyRequests:
-			return "", newAPIError(ErrRateLimited, resp.StatusCode, detail)
+			return "", newAPIError(ErrRateLimited, resp.StatusCode)
 		case resp.StatusCode >= 500:
-			return "", newAPIError(ErrServer, resp.StatusCode, detail)
+			return "", newAPIError(ErrServer, resp.StatusCode)
 		default:
 			// 4xx other (e.g. 400 bad request) treat as bad response / config
-			return "", newAPIError(ErrBadResponse, resp.StatusCode, detail)
+			return "", newAPIError(ErrBadResponse, resp.StatusCode)
 		}
 	}
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("%w: read body: %v", ErrBadResponse, err)
+		return "", ErrBadResponse
 	}
 	var parsed ChatCompletionsResponse
 	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return "", newAPIError(ErrBadResponse, resp.StatusCode, truncateDetail(strings.TrimSpace(string(raw)), 300))
+		return "", newAPIError(ErrBadResponse, resp.StatusCode)
 	}
 	if len(parsed.Choices) == 0 || parsed.Choices[0].Message.Content == "" {
-		return "", newAPIError(ErrBadResponse, resp.StatusCode, truncateDetail(strings.TrimSpace(string(raw)), 300))
+		return "", newAPIError(ErrBadResponse, resp.StatusCode)
 	}
 	return strings.TrimSpace(parsed.Choices[0].Message.Content), nil
 }

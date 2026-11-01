@@ -119,7 +119,8 @@ go test ./internal/history -run '^$' -bench BenchmarkHistoryDecode -benchmem -co
 ## 安全与隐私
 
 - API Key 仅存于系统 Keychain（以服务商 ID 为账号），切勿硬编码或提交到版本库。
-- 涉及上游接口报错透传时，注意不要在日志或界面中泄露敏感信息。
+- 上游错误正文、异常成功响应正文和底层网络错误可能包含凭据、URL 查询参数或输入文本，不得透传到诊断或历史错误字段。使用已知错误类型与 HTTP 状态排障；`APIError.Detail` 仅为源码兼容保留，新错误应保持为空。
+- 隐私回归请使用合成数据与本地 HTTP 服务，不要使用真实密钥或敏感正文。升级对旧记录、日志、备份和导出副本的处理要求见 [README.md](README.md#错误诊断与升级隐私要求)。
 
 ## 贡献授权
 
