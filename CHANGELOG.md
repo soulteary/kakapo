@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2026.11.02
 
 - Keep provider error bodies, malformed success bodies and low-level transport/read errors out of translation diagnostics. Preserve error kinds and HTTP status; retain `APIError.Detail` for source compatibility without populating or formatting it.
 - Report history deletion failures instead of returning success while data remains. An already absent history file remains a successful clear.
