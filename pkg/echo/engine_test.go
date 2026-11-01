@@ -16,6 +16,7 @@ package echo
 
 import (
 	"bytes"
+	"errors"
 	"github.com/labstack/echo/v4"
 	"log"
 	"net/http"
@@ -64,5 +65,31 @@ func TestEngineLoggingAndRecovery(t *testing.T) {
 	empty.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
 	if w.Body.Len() != 0 {
 		t.Fatal("nil handler wrote response")
+	}
+}
+
+func TestLogsUseRoutePatternsAndErrorStatus(t *testing.T) {
+	t.Setenv("KAKAPO_HTTP_LOG", "1")
+	var logs bytes.Buffer
+	previous := log.Writer()
+	log.SetOutput(&logs)
+	defer log.SetOutput(previous)
+	engine := NewEngine(WithLogPrefix("[TEST]"))
+	engine.GET("/users/:id", func(echo.Context) error { return echo.NewHTTPError(404, "missing") })
+	engine.GET("/failure", func(echo.Context) error { return errors.New("synthetic-sensitive-cause") })
+	for _, tc := range []struct {
+		method, path, pattern string
+		status                int
+	}{{"GET", "/users/synthetic-private-user", "GET /users/:id 404", 404}, {"GET", "/failure", "GET /failure 500", 500}, {"SYNTHETIC_SECRET_METHOD", "/synthetic-private-location", "OTHER (unmatched) 404", 404}} {
+		logs.Reset()
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, httptest.NewRequest(tc.method, tc.path, nil))
+		if response.Code != tc.status {
+			t.Fatal(response.Code)
+		}
+		output := logs.String()
+		if !strings.Contains(output, tc.pattern) || strings.Contains(strings.ToLower(output), "synthetic") {
+			t.Fatalf("unsafe or incorrect access log: %q", output)
+		}
 	}
 }

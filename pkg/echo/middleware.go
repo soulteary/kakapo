@@ -15,7 +15,9 @@
 package echo
 
 import (
+	"errors"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -34,7 +36,25 @@ func Logging(prefix string) echo.MiddlewareFunc {
 			start := time.Now()
 			err := next(c)
 			latency := time.Since(start)
-			log.Printf("%s %s %s %d %s", prefix, c.Request().Method, c.Request().URL.Path, c.Response().Status, latency)
+			route := c.Path()
+			if route == "" {
+				route = "(unmatched)"
+			}
+			method := c.Request().Method
+			switch method {
+			case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodConnect, http.MethodTrace:
+			default:
+				method = "OTHER"
+			}
+			status := c.Response().Status
+			if err != nil && !c.Response().Committed {
+				status = http.StatusInternalServerError
+				var httpErr *echo.HTTPError
+				if errors.As(err, &httpErr) {
+					status = httpErr.Code
+				}
+			}
+			log.Printf("%s %s %s %d %s", prefix, method, route, status, latency)
 			return err
 		}
 	}

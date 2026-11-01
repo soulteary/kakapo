@@ -32,6 +32,11 @@ var (
 	ErrBadResponse     = errors.New("err_bad_response")
 )
 
+// ValidationError carries a trusted validation message without request text.
+type ValidationError struct{ Message string }
+
+func (e *ValidationError) Error() string { return e.Message }
+
 // APIError carries a sentinel kind and HTTP status without upstream body text.
 // Provider responses may echo credentials or private input and must not become
 // diagnostics that can be displayed, logged or persisted in history.
@@ -61,6 +66,10 @@ func ErrorMessage(err error) string {
 	if err == nil {
 		return ""
 	}
+	var validation *ValidationError
+	if errors.As(err, &validation) && validation != nil {
+		return validation.Message
+	}
 	return baseMessage(err)
 }
 
@@ -86,6 +95,6 @@ func baseMessage(err error) string {
 	case errors.Is(err, ErrBadResponse):
 		return "翻译结果异常，请重试"
 	default:
-		return err.Error()
+		return "操作失败，请检查输入、设置或本地存储"
 	}
 }
