@@ -95,6 +95,17 @@ go test ./...
 
 现有测试可作为范例：`internal/config`、`internal/history`、`internal/translate` 下的 `*_test.go`。
 
+历史解码基准（请在相同 Linux 环境和 Go 版本下分别测量改动前后）：
+
+```bash
+go test ./internal/history -run '^$' -bench BenchmarkHistoryDecode -benchmem -count=8 -cpu=1
+```
+
+基准覆盖 50 条历史记录、每条 1 个或 6 个结果，报告耗时、吞吐、每次分配字节数与分配次数。它只测量内存中的 JSON 解码，不代表磁盘读写、网络翻译或界面端到端延迟。避免同时运行构建、依赖安装等任务；共享宿主负载波动时，不应仅凭前后两组耗时宣称加速。
+
+历史文件仍兼容小写、旧版首字母大写及混合大小写 JSON 字段；重复字段保持 `encoding/json` 的后出现值覆盖规则。解码优化不改变文件格式，不需要迁移或额外持久卷，旧版可读取同一文件。现有存储限制仍然适用：应由单个应用实例使用配置目录，多实例之间没有文件锁；本次解码优化没有增加跨进程写入保障。
+
+
 ## 提交与 Pull Request
 
 - 提交信息建议使用[约定式提交](https://www.conventionalcommits.org/zh-hans/)风格，例如：
