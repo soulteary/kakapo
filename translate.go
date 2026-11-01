@@ -37,10 +37,10 @@ const maxParallelTranslations = 6
 
 // App struct
 type TranslateApp struct {
-	ctx             context.Context
-	historyStore    *history.Store
-	historyInitOnce sync.Once
-	credentials     secrets.Store
+	ctx          context.Context
+	historyStore *history.Store
+	historyMu    sync.Mutex
+	credentials  secrets.Store
 }
 
 // NewApp creates a new App application struct
@@ -60,27 +60,25 @@ func (a *TranslateApp) secretStore() secrets.Store {
 // so we can call the runtime methods. Initializes native menu bar tray on macOS.
 func (a *TranslateApp) startup(ctx context.Context) {
 	a.ctx = ctx
-	if store, err := history.NewStore(); err == nil {
-		a.historyStore = store
-	} else {
-		log.Printf("[Kakapo] 历史记录初始化失败（将在首次使用时重试）: %v", err)
+	if _, err := a.ensureHistoryStore(); err != nil {
+		log.Printf("[Kakapo] 历史记录初始化失败，后续操作将重试 (%T)", err)
 	}
 }
 
-// ensureHistoryStore initializes history store if nil (lazy init after startup failure).
-func (a *TranslateApp) ensureHistoryStore() {
-	a.historyInitOnce.Do(func() {
-		if a.historyStore != nil {
-			return
-		}
-		store, err := history.NewStore()
-		if err != nil {
-			log.Printf("[Kakapo] 历史记录初始化失败: %v", err)
-			return
-		}
-		a.historyStore = store
-		log.Printf("[Kakapo] 历史记录将保存至: %s", store.Path())
-	})
+// ensureHistoryStore retries failed initialization and publishes only a usable store.
+func (a *TranslateApp) ensureHistoryStore() (*history.Store, error) {
+	a.historyMu.Lock()
+	defer a.historyMu.Unlock()
+	if a.historyStore != nil {
+		return a.historyStore, nil
+	}
+	store, err := history.NewStore()
+	if err != nil {
+		return nil, err
+	}
+	a.historyStore = store
+	log.Printf("[Kakapo] 历史记录存储已初始化")
+	return store, nil
 }
 
 // TranslationResult is returned by TranslateZhToEn (single result, legacy).
@@ -322,9 +320,9 @@ func (a *TranslateApp) AddHistory(body *HistoryPostBody) error {
 	if body == nil {
 		return nil
 	}
-	a.ensureHistoryStore()
-	if a.historyStore == nil {
-		return fmt.Errorf("历史记录未初始化，无法保存")
+	store, err := a.ensureHistoryStore()
+	if err != nil {
+		return err
 	}
 	createdAt := body.CreatedAt
 	if createdAt == 0 {
@@ -373,16 +371,16 @@ func (a *TranslateApp) AddHistory(body *HistoryPostBody) error {
 		}
 		e.LatencyMs = body.LatencyMs
 	}
-	return a.historyStore.Add(e)
+	return store.Add(e)
 }
 
 // GetHistory returns history entries, optionally filtered by search query.
 func (a *TranslateApp) GetHistory(query string) ([]HistoryEntry, error) {
-	a.ensureHistoryStore()
-	if a.historyStore == nil {
-		return nil, nil
+	store, err := a.ensureHistoryStore()
+	if err != nil {
+		return nil, err
 	}
-	list, err := a.historyStore.Search(query)
+	list, err := store.Search(query)
 	if err != nil {
 		return nil, err
 	}
@@ -416,11 +414,11 @@ func (a *TranslateApp) GetHistory(query string) ([]HistoryEntry, error) {
 
 // ClearHistory removes all history entries.
 func (a *TranslateApp) ClearHistory() error {
-	a.ensureHistoryStore()
-	if a.historyStore == nil {
-		return nil
+	store, err := a.ensureHistoryStore()
+	if err != nil {
+		return err
 	}
-	return a.historyStore.Clear()
+	return store.Clear()
 }
 
 // GetSettings returns current settings for the UI (API keys from Keychain, never plaintext).
