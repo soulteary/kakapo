@@ -203,7 +203,9 @@ func (s *Store) load() ([]Entry, error) {
 // "file exists" means "has records". Never writes "null", only removes the file.
 func (s *Store) save(list []Entry) error {
 	if len(list) == 0 {
-		_ = os.Remove(s.path)
+		if err := os.Remove(s.path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 		return nil
 	}
 	data, err := json.MarshalIndent(list, "", "  ")
