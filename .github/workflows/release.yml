@@ -10,6 +10,10 @@ on:
       - '.github/workflows/release.yml'
       - 'build/**'
       - 'Taskfile.yml'
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'frontend/**'
 
 concurrency:
   group: release-${{ github.ref }}

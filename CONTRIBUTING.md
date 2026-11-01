@@ -93,6 +93,15 @@ task common:license:check   # 校验所有目标源文件均有头部
 go test ./...
 ```
 
+Linux CI 对所有生产包执行竞态测试，并要求总体语句覆盖率至少 95%，不按包覆盖率平均值计算，也不排除桌面代码。请在安装 Linux GUI 编译依赖并准备前端资源后运行：
+
+```bash
+go test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+awk -f .github/scripts/check-coverage.awk coverage.out
+```
+
+Linux 专用业务测试使用隔离的配置目录和可注入凭据接口；合成内存凭据只验证业务绑定与失败路径，不等同于真实 macOS Keychain 集成测试。窗口组装测试不启动原生事件循环，不应声称验证了 GUI 交互或系统托盘显示。
+
 现有测试可作为范例：`internal/config`、`internal/history`、`internal/translate` 下的 `*_test.go`。
 
 历史解码基准（请在相同 Linux 环境和 Go 版本下分别测量改动前后）：

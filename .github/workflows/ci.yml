@@ -78,7 +78,7 @@ jobs:
           directory: "."
           packages: "./..."
           race: "true"
-          coverage_threshold: "0"
+          coverage_threshold: "95"
           test_args: "-count=1"
           version: "v1.1.2"
           cover_mode: "atomic"
@@ -106,6 +106,8 @@ jobs:
           PROFILE: ${{ steps.go_test_report.outputs.coverage_profile }}
         run: |-
           cp "$PROFILE" coverage.out
+      - name: Require 95 percent statement coverage
+        run: awk -f .github/scripts/check-coverage.awk coverage.out
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:

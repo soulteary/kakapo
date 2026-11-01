@@ -40,11 +40,20 @@ type TranslateApp struct {
 	ctx             context.Context
 	historyStore    *history.Store
 	historyInitOnce sync.Once
+	credentials     secrets.Store
 }
 
 // NewApp creates a new App application struct
 func NewTranslateApp() *TranslateApp {
 	return &TranslateApp{}
+}
+
+// secretStore returns the configured credential backend or the platform default.
+func (a *TranslateApp) secretStore() secrets.Store {
+	if a.credentials != nil {
+		return a.credentials
+	}
+	return secrets.KeychainStore{}
 }
 
 // startup is called when the app starts. The context is saved
@@ -176,7 +185,7 @@ func (a *TranslateApp) TranslateZhToEn(text string) (*TranslationResult, error) 
 	if !ok {
 		return nil, translate.ErrInvalidConfig
 	}
-	var store secrets.Store = secrets.KeychainStore{}
+	store := a.secretStore()
 	apiKey, err := store.Get(secrets.KeychainService, pm.Provider.ID)
 	if err != nil || apiKey == "" {
 		return nil, translate.ErrNoAPIKey
@@ -238,7 +247,7 @@ func (a *TranslateApp) TranslateParallel(text, sourceLang string, targetLangs, m
 	}
 
 	// Fetch (and cache) each provider's API key once.
-	var store secrets.Store = secrets.KeychainStore{}
+	store := a.secretStore()
 	keyCache := make(map[string]string)
 	for _, pm := range providerModels {
 		if _, ok := keyCache[pm.Provider.ID]; ok {
@@ -429,7 +438,7 @@ func (a *TranslateApp) GetSettings() (*SettingsDTO, error) {
 		AutoCopy:        cfg.AutoCopy,
 		ClearOnOpen:     cfg.ClearOnOpen,
 	}
-	var store secrets.Store = secrets.KeychainStore{}
+	store := a.secretStore()
 	dto.Providers = make([]ProviderDTO, len(cfg.Providers))
 	for i, p := range cfg.Providers {
 		pd := ProviderDTO{
@@ -462,7 +471,7 @@ func (a *TranslateApp) SaveSettings(settings *SettingsDTO) error {
 		prevIDs[p.ID] = true
 	}
 
-	var store secrets.Store = secrets.KeychainStore{}
+	store := a.secretStore()
 	temperature := settings.Temperature
 	cfg := config.Settings{
 		SourceLanguage:  strings.TrimSpace(settings.SourceLanguage),

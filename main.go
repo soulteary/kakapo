@@ -58,6 +58,16 @@ const EventTranslateSaved = "translate:saved"
 // 默认启动一个每秒发送基于时间的事件的 goroutine。随后运行应用，
 // 并记录可能发生的任何错误。
 func main() {
+	app := newApplication()
+	events.Start(app)
+	if err := app.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// newApplication assembles desktop services and windows before starting the
+// native event loop, so startup configuration can be verified independently.
+func newApplication() *application.App {
 
 	// 先注册事件及关联的 Services，再创建 app 时合并进 Options.Services
 	events.AddEmitter(events.EventTime, time.Second, func() string {
@@ -169,11 +179,5 @@ func main() {
 		},
 	})
 
-	events.Start(app)
-
-	err := app.Run()
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	return app
 }

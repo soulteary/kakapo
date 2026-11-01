@@ -19,7 +19,7 @@
     <img alt="License" src="https://img.shields.io/github/license/soulteary/kakapo?style=flat-square" />
   </a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.27.3-00ADD8?style=flat-square&logo=go&logoColor=white" />
-  <img alt="Wails" src="https://img.shields.io/badge/Wails-v3%20alpha-ff4f8b?style=flat-square" />
+  <img alt="Wails" src="https://img.shields.io/badge/Wails-v3.0.0--beta.28-ff4f8b?style=flat-square" />
   <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" />
   <img alt="Bun" src="https://img.shields.io/badge/Bun-ready-000000?style=flat-square&logo=bun&logoColor=white" />
   <a href="./.github/go-test-report.md"><img alt="Go Test Coverage" src="./.github/coverage.svg" /></a> <a href="./.github/goreportcard-report.md"><img alt="Go Report Card" src="./.github/goreportcard.svg" /></a>
@@ -49,7 +49,7 @@ Kakapo 也是一份完整的 [Wails v3](https://v3alpha.wails.io/) 桌面应用�
 | 多语言互译 | 支持源语言、目标语言自由配置，可一次翻译到多个目标语言 |
 | 多服务商管理 | 支持 OpenAI 兼容接口，可配置 Kimi / Moonshot、DeepSeek、OpenAI、自定义服务 |
 | 并行翻译对比 | 按 `服务商 × 模型 × 目标语言` 并行执行（并发上限 6），便于横向比较输出质量与速度 |
-| 模型参数适配 | 针对模型族自动调参：`kimi-k2` 系列省略 `temperature`、`thinking=disabled` 并放大 `max_tokens`；`deepseek` 系列省略 `temperature`、`reasoning_effort=high`、`thinking=enabled` |
+| 模型参数适配 | 针对模型族自动调参：`kimi-k2` 系列省略 `temperature`、`thinking=disabled` 并放大 `max_tokens`；`deepseek-reasoner` / `deepseek-r1` 省略 `temperature`、`reasoning_effort=high`、`thinking=enabled`；`deepseek-chat` / `deepseek-v3` 等普通模型仍发送 `temperature` |
 | 端点模式 | 每个服务商可选 `base`（自动追加 `/v1/chat/completions`）或 `full`（按原样使用完整 URL） |
 | API Key 安全存储 | 每个服务商的 API Key 独立保存到系统 Keychain（账号名为 Provider ID），不写入 `settings.json` |
 | 本地翻译历史 | 历史记录本地持久化，支持搜索、清空与结果回放 |
@@ -337,7 +337,7 @@ kakapo/
 ├── appinfo.go                     # 应用元信息服务 AppInfoService
 ├── main.go                        # Wails app 主入口
 ├── server.go                      # Echo 示例服务（/api）
-├── server_translate.go            # 翻译页面与 REST API（build tag !server）
+├── server_translate.go            # 翻译页面与 REST API
 ├── translate.go                   # 翻译业务核心 TranslateApp
 ├── Taskfile.yml
 └── README.md
@@ -380,15 +380,11 @@ task common:license:check
 task common:license:add
 ```
 
-可选：Server / Docker（`common` 命名空间）：
+当前仓库只提供 macOS 原生构建与打包任务，没有 `common:build:server`、`common:run:server` 或 Docker 构建/运行任务。内部 AssetServer 不应据此当作独立部署的 HTTP 服务。
 
-```bash
-task common:build:server
-task common:run:server
-task common:build:docker
-task common:run:docker
-task common:setup:docker
-```
+Linux 用于后端构建、静态检查和测试，需要 `libgtk-4-dev`、`libwebkitgtk-6.0-dev`、`libsoup-3.0-dev` 及 C 编译工具链。后端验证时可按 CI 为 `frontend/dist/app/index.html` 和 `frontend/dist/translate/index.html` 创建占位资源，以满足 `go:embed`；占位资源不能用于发布。非 macOS 的 Keychain 是不持久化密钥的兼容 stub，朗读返回不支持；仓库不发布 Linux 桌面包。
+
+访问日志默认启用，可设置 `KAKAPO_HTTP_LOG=0`、`false`、`off` 或 `no` 关闭（忽略大小写及首尾空白）。该变量不关闭业务错误或启动日志；日志输出不应包含凭据或敏感正文。
 
 后端常用检查：
 
