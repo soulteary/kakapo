@@ -36,6 +36,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Verify native storage and Keychain
+        run: sh .github/scripts/check-native-storage.sh | tee native-storage-tests.json
+
+      - name: Upload native integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-storage-release-${{ github.run_id }}
+          path: native-storage-tests.json
+          if-no-files-found: error
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -49,6 +60,11 @@ jobs:
         env:
           VERSION: ${{ github.event_name == 'pull_request' && 'dev' || github.ref_name }}
         run: wails3 task darwin:package:universal
+
+      - name: Verify universal application
+        run: |
+          codesign --verify --deep --strict --verbose=2 bin/kakapo.app
+          lipo -verify_arch x86_64 arm64 bin/kakapo.app/Contents/MacOS/kakapo
 
       - name: Zip .app bundle
         # 用 ditto 压缩以保留 macOS 资源分支与代码签名，解压后即可直接运行。

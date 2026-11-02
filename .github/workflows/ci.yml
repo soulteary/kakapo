@@ -168,6 +168,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Verify native storage and Keychain
+        run: sh .github/scripts/check-native-storage.sh | tee native-storage-tests.json
+
+      - name: Upload native integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-storage-${{ github.run_id }}
+          path: native-storage-tests.json
+          if-no-files-found: error
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -179,6 +190,9 @@ jobs:
       - name: Package runnable .app bundle
         # package 任务会先 build（生成 bindings、前端、原生二进制），再打成可运行的 .app（含 ad-hoc 签名）。
         run: wails3 task package
+
+      - name: Verify application signature
+        run: codesign --verify --deep --strict --verbose=2 bin/kakapo.app
 
       - name: Zip .app bundle
         # 用 ditto 压缩以保留 macOS 资源分支与代码签名，解压后即可直接运行。
