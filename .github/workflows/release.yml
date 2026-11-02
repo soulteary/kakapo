@@ -41,6 +41,7 @@ jobs:
           cache: true
 
       - name: Verify native storage and Keychain
+        shell: bash
         run: sh .github/scripts/check-native-storage.sh | tee native-storage-tests.json
 
       - name: Upload native integration evidence
@@ -68,7 +69,7 @@ jobs:
       - name: Verify universal application
         run: |
           codesign --verify --deep --strict --verbose=2 bin/kakapo.app
-          lipo -verify_arch x86_64 arm64 bin/kakapo.app/Contents/MacOS/kakapo
+          lipo bin/kakapo.app/Contents/MacOS/kakapo -verify_arch x86_64 arm64
 
       - name: Zip .app bundle
         # 用 ditto 压缩以保留 macOS 资源分支与代码签名，解压后即可直接运行。

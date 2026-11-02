@@ -169,6 +169,7 @@ jobs:
           cache: true
 
       - name: Verify native storage and Keychain
+        shell: bash
         run: sh .github/scripts/check-native-storage.sh | tee native-storage-tests.json
 
       - name: Upload native integration evidence
