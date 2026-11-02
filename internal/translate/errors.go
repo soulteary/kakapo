@@ -21,29 +21,34 @@ import (
 
 // Sentinel errors for UI mapping (see ErrorMessage).
 var (
-	ErrNoAPIKey      = errors.New("err_no_api_key")
-	ErrInvalidConfig = errors.New("err_invalid_config")
-	ErrNetwork       = errors.New("err_network")
-	ErrTimeout       = errors.New("err_timeout")
-	ErrUnauthorized  = errors.New("err_unauthorized")
-	ErrRateLimited   = errors.New("err_rate_limited")
-	ErrServer        = errors.New("err_server")
-	ErrBadResponse   = errors.New("err_bad_response")
+	ErrSettingsPending = errors.New("err_settings_pending")
+	ErrNoAPIKey        = errors.New("err_no_api_key")
+	ErrInvalidConfig   = errors.New("err_invalid_config")
+	ErrNetwork         = errors.New("err_network")
+	ErrTimeout         = errors.New("err_timeout")
+	ErrUnauthorized    = errors.New("err_unauthorized")
+	ErrRateLimited     = errors.New("err_rate_limited")
+	ErrServer          = errors.New("err_server")
+	ErrBadResponse     = errors.New("err_bad_response")
 )
 
-// APIError wraps a sentinel error (Kind) with the HTTP status and the detail
-// extracted from the upstream API response body, so the UI can surface the
-// real reason (e.g. "model not found", "invalid api key").
+// ValidationError carries a trusted validation message without request text.
+type ValidationError struct{ Message string }
+
+func (e *ValidationError) Error() string { return e.Message }
+
+// APIError carries a sentinel kind and HTTP status without upstream body text.
+// Provider responses may echo credentials or private input and must not become
+// diagnostics that can be displayed, logged or persisted in history.
 type APIError struct {
 	Kind   error // one of the sentinel errors above
 	Status int
+	// Detail is retained for source compatibility. New errors leave it empty;
+	// diagnostic formatting ignores it, including values created by older callers.
 	Detail string
 }
 
 func (e *APIError) Error() string {
-	if e.Detail != "" {
-		return fmt.Sprintf("%s: HTTP %d: %s", e.Kind.Error(), e.Status, e.Detail)
-	}
 	return fmt.Sprintf("%s: HTTP %d", e.Kind.Error(), e.Status)
 }
 
@@ -51,28 +56,28 @@ func (e *APIError) Error() string {
 func (e *APIError) Unwrap() error { return e.Kind }
 
 // newAPIError builds an APIError for a non-2xx response.
-func newAPIError(kind error, status int, detail string) error {
-	return &APIError{Kind: kind, Status: status, Detail: detail}
+func newAPIError(kind error, status int) error {
+	return &APIError{Kind: kind, Status: status}
 }
 
-// ErrorMessage returns a user-facing message for a known error. When the error
-// carries upstream detail (APIError), it is appended so the user sees the real
-// cause rather than only a generic hint.
+// ErrorMessage returns a user-facing message for a known error without exposing
+// upstream response bodies or transport error details.
 func ErrorMessage(err error) string {
 	if err == nil {
 		return ""
 	}
-	base := baseMessage(err)
-	var apiErr *APIError
-	if errors.As(err, &apiErr) && apiErr.Detail != "" {
-		return fmt.Sprintf("%s（接口返回：%s）", base, apiErr.Detail)
+	var validation *ValidationError
+	if errors.As(err, &validation) && validation != nil {
+		return validation.Message
 	}
-	return base
+	return baseMessage(err)
 }
 
 // baseMessage maps a known sentinel error to its generic user-facing message.
 func baseMessage(err error) string {
 	switch {
+	case errors.Is(err, ErrSettingsPending):
+		return "上次设置更新未完成，翻译已暂停。请核对服务商地址，重新输入或清空待确认的 API Key 后保存"
 	case errors.Is(err, ErrNoAPIKey):
 		return "未配置 API Key，请在设置中填写"
 	case errors.Is(err, ErrInvalidConfig):
@@ -90,6 +95,6 @@ func baseMessage(err error) string {
 	case errors.Is(err, ErrBadResponse):
 		return "翻译结果异常，请重试"
 	default:
-		return err.Error()
+		return "操作失败，请检查输入、设置或本地存储"
 	}
 }

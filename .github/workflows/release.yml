@@ -8,8 +8,16 @@ on:
   pull_request:
     paths:
       - '.github/workflows/release.yml'
+      - '.github/scripts/check-native-storage.sh'
+      - '.github/release-notes/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
       - 'build/**'
       - 'Taskfile.yml'
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'frontend/**'
 
 concurrency:
   group: release-${{ github.ref }}
@@ -32,7 +40,21 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Verify native storage and Keychain
+        shell: bash
+        run: sh .github/scripts/check-native-storage.sh | tee native-storage-tests.json
+
+      - name: Upload native integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-storage-release-${{ github.run_id }}
+          path: native-storage-tests.json
+          if-no-files-found: error
+
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
 
       - name: Install Wails3 CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
@@ -43,6 +65,11 @@ jobs:
         env:
           VERSION: ${{ github.event_name == 'pull_request' && 'dev' || github.ref_name }}
         run: wails3 task darwin:package:universal
+
+      - name: Verify universal application
+        run: |
+          codesign --verify --deep --strict --verbose=2 bin/kakapo.app
+          lipo bin/kakapo.app/Contents/MacOS/kakapo -verify_arch x86_64 arm64
 
       - name: Zip .app bundle
         # 用 ditto 压缩以保留 macOS 资源分支与代码签名，解压后即可直接运行。
@@ -56,12 +83,23 @@ jobs:
           shasum -a 256 "$asset" > "$asset.sha256"
           echo "asset=$asset" >> "$GITHUB_OUTPUT"
 
+      - name: Upload universal preview for verification
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kakapo-universal-preview
+          path: |
+            bin/${{ steps.zip.outputs.asset }}
+            bin/${{ steps.zip.outputs.asset }}.sha256
+          if-no-files-found: error
+
       - name: Publish GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           # Calendar release revisions such as -r1 are stable releases.
           prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          body_path: .github/release-notes/${{ github.ref_name }}.md
           generate_release_notes: true
           files: |
             bin/${{ steps.zip.outputs.asset }}

@@ -17,6 +17,7 @@ package history
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/soulteary/kakapo/internal/persistence"
 	"log"
 	"os"
 	"path/filepath"
@@ -51,9 +52,9 @@ type Entry struct {
 	Results         []ResultItem `json:"results,omitempty"`
 }
 
-// UnmarshalJSON decodes an Entry from the canonical lowercase keys, falling back
-// to capitalized keys for backward compatibility with older history files that
-// were written using Go's default (exported field) names.
+// UnmarshalJSON decodes into a fresh value, leaving the receiver unchanged on
+// error. encoding/json already matches keys case-insensitively, including the
+// capitalized field names used by older history files; no second decode is needed.
 func (e *Entry) UnmarshalJSON(data []byte) error {
 	type alias Entry // alias drops the custom method to avoid recursion
 	var a alias
@@ -62,42 +63,6 @@ func (e *Entry) UnmarshalJSON(data []byte) error {
 	}
 	*e = Entry(a)
 
-	var legacy struct {
-		Input           string       `json:"Input"`
-		Output          string       `json:"Output"`
-		CreatedAt       int64        `json:"CreatedAt"`
-		SourceLanguage  string       `json:"SourceLanguage"`
-		TargetLanguages []string     `json:"TargetLanguages"`
-		Models          []string     `json:"Models"`
-		LatencyMs       int64        `json:"LatencyMs"`
-		Results         []ResultItem `json:"Results"`
-	}
-	if json.Unmarshal(data, &legacy) == nil {
-		if e.Input == "" {
-			e.Input = legacy.Input
-		}
-		if e.Output == "" {
-			e.Output = legacy.Output
-		}
-		if e.CreatedAt == 0 {
-			e.CreatedAt = legacy.CreatedAt
-		}
-		if e.SourceLanguage == "" {
-			e.SourceLanguage = legacy.SourceLanguage
-		}
-		if len(e.TargetLanguages) == 0 {
-			e.TargetLanguages = legacy.TargetLanguages
-		}
-		if len(e.Models) == 0 {
-			e.Models = legacy.Models
-		}
-		if e.LatencyMs == 0 {
-			e.LatencyMs = legacy.LatencyMs
-		}
-		if len(e.Results) == 0 {
-			e.Results = legacy.Results
-		}
-	}
 	return nil
 }
 
@@ -111,34 +76,6 @@ func (r *ResultItem) UnmarshalJSON(data []byte) error {
 	}
 	*r = ResultItem(a)
 
-	var legacy struct {
-		Provider       string `json:"Provider"`
-		Model          string `json:"Model"`
-		TargetLanguage string `json:"TargetLanguage"`
-		Output         string `json:"Output"`
-		LatencyMs      int64  `json:"LatencyMs"`
-		Error          string `json:"Error"`
-	}
-	if json.Unmarshal(data, &legacy) == nil {
-		if r.Provider == "" {
-			r.Provider = legacy.Provider
-		}
-		if r.Model == "" {
-			r.Model = legacy.Model
-		}
-		if r.TargetLanguage == "" {
-			r.TargetLanguage = legacy.TargetLanguage
-		}
-		if r.Output == "" {
-			r.Output = legacy.Output
-		}
-		if r.LatencyMs == 0 {
-			r.LatencyMs = legacy.LatencyMs
-		}
-		if r.Error == "" {
-			r.Error = legacy.Error
-		}
-	}
 	return nil
 }
 
@@ -203,15 +140,17 @@ func (s *Store) load() ([]Entry, error) {
 // "file exists" means "has records". Never writes "null", only removes the file.
 func (s *Store) save(list []Entry) error {
 	if len(list) == 0 {
-		_ = os.Remove(s.path)
+		if err := os.Remove(s.path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 		return nil
 	}
 	data, err := json.MarshalIndent(list, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(s.path, data, 0600); err != nil {
-		log.Printf("[Kakapo] 历史写入失败 %s: %v", s.path, err)
+	if err := persistence.WriteFile(s.path, data); err != nil {
+		log.Printf("[Kakapo] 历史写入失败 (%T)", err)
 		return err
 	}
 	return nil
