@@ -8,6 +8,10 @@ on:
   pull_request:
     paths:
       - '.github/workflows/release.yml'
+      - '.github/scripts/check-native-storage.sh'
+      - '.github/release-notes/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
       - 'build/**'
       - 'Taskfile.yml'
       - '**/*.go'

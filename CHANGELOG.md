@@ -2,6 +2,8 @@
 
 ## v2026.11.02
 
+- Require native macOS storage/Keychain integration, strict ad-hoc signature verification and both universal architectures before release.
+
 - Omit arbitrary frontend event payloads and JSON decoder details from logs and error responses. Malformed input still returns HTTP 400; valid request and event response shapes are unchanged.
 - Keep provider error bodies, malformed success bodies and low-level transport/read errors out of translation diagnostics. Preserve error kinds and HTTP status; retain `APIError.Detail` for source compatibility without populating or formatting it.
 - Prevent new credentials from being sent to an old endpoint after failed settings persistence. Durably mark pending credential changes, block translation until explicit recovery, and read configuration/credentials as one process-local snapshot without holding locks over upstream requests.
