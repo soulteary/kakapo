@@ -1,11 +1,11 @@
 # Go Report Card
 
-**Grade: A+** (98.8%)
+**Grade: A+** (97.8%)
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 30 |
-| Issues | 3 |
+| Files | 54 |
+| Issues | 10 |
 
 ## Checks
 
@@ -13,8 +13,8 @@
 | ----- | ----- |
 | go_vet | 100% |
 | gofmt | 100% |
-| gocyclo | 90% |
 | ineffassign | 100% |
+| gocyclo | 81% |
 | license | 100% |
 | misspell | 100% |
 
@@ -22,14 +22,31 @@
 
 ### gocyclo
 
-- `server_translate.go`
-  - Line 90: cyclomatic complexity 40 for function (*TranslateWebService).setupTranslateRoutes
+- `internal/config/storage_linux_test.go`
+  - Line 36: cyclomatic complexity 16 for function TestConfigPathsAndIOFailures
+- `credential_crash_linux_test.go`
+  - Line 64: cyclomatic complexity 27 for function TestCredentialJournalSurvivesProcessTermination
+- `internal/persistence/process_linux_test.go`
+  - Line 27: cyclomatic complexity 26 for function TestProcessTerminationAtCommitBoundary
 - `internal/translate/client.go`
-  - Line 235: cyclomatic complexity 20 for function (*Client).Translate
+  - Line 191: cyclomatic complexity 20 for function (*Client).Translate
+- `internal/persistence/file_test.go`
+  - Line 76: cyclomatic complexity 18 for function TestSyncCloseRenameAndCommitUncertainty
+- `credential_updates_linux_test.go`
+  - Line 165: cyclomatic complexity 17 for function TestCredentialMarkerFailureAndInvalidIdentifiers
+  - Line 57: cyclomatic complexity 17 for function TestCredentialCommitFailureBlocksMismatchedTranslation
+- `internal/history/store_test.go`
+  - Line 206: cyclomatic complexity 16 for function TestStoreReadAndWriteFailures
+- `server_translate.go`
+  - Line 93: cyclomatic complexity 40 for function (*TranslateWebService).setupTranslateRoutes
 - `translate.go`
-  - Line 202: cyclomatic complexity 19 for function (*TranslateApp).TranslateParallel
-  - Line 453: cyclomatic complexity 17 for function (*TranslateApp).SaveSettings
-  - Line 312: cyclomatic complexity 16 for function (*TranslateApp).AddHistory
+  - Line 519: cyclomatic complexity 35 for function (*TranslateApp).SaveSettings
+  - Line 232: cyclomatic complexity 21 for function (*TranslateApp).TranslateParallel
+  - Line 357: cyclomatic complexity 16 for function (*TranslateApp).AddHistory
+- `runtime_linux_test.go`
+  - Line 75: cyclomatic complexity 25 for function TestSettingsRoundTrip
+  - Line 346: cyclomatic complexity 19 for function TestTranslationProviderBindingAndPartialFailure
+  - Line 202: cyclomatic complexity 19 for function TestHistoryBusinessRoundTrip
 
 ---
 
