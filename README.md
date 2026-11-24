@@ -19,7 +19,7 @@
     <img alt="License" src="https://img.shields.io/github/license/soulteary/kakapo?style=flat-square" />
   </a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.27.4-00ADD8?style=flat-square&logo=go&logoColor=white" />
-  <img alt="Wails" src="https://img.shields.io/badge/Wails-v3.0.0--beta.28-ff4f8b?style=flat-square" />
+  <img alt="Wails" src="https://img.shields.io/badge/Wails-v3.1.0-ff4f8b?style=flat-square" />
   <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" />
   <img alt="Bun" src="https://img.shields.io/badge/Bun-ready-000000?style=flat-square&logo=bun&logoColor=white" />
   <a href="./.github/go-test-report.md"><img alt="Go Test Coverage" src="./.github/coverage.svg" /></a> <a href="./.github/goreportcard-report.md"><img alt="Go Report Card" src="./.github/goreportcard.svg" /></a>
