@@ -20,7 +20,7 @@ jobs:
     name: Go test & vet
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Linux GUI dependencies
         # 根包及 internal/wails/* 引入 wails/v3/pkg/application，在 Linux 上通过 cgo/pkg-config
@@ -29,7 +29,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: true
@@ -54,10 +54,10 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
+          bun-version: 1.4.5
 
       - name: Install pinned Wails CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 
       - name: Install locked frontend dependencies
         working-directory: frontend
@@ -93,31 +93,31 @@ jobs:
           test ! -L .github
           rm -f -- .github/go-test-report.md .github/go-test-report.json .github/coverage.svg .github/goreportcard.svg .github/goreportcard-report.md
           rm -rf -- .github/test-results
-      - name: Test, race and coverage (GTR v1.1.2)
+      - name: Test, race and coverage (GTR v1.1.3)
         id: go_test_report
-        uses: soulteary/go-test-report-action@bf04b539f7bf2a6f67d602da4259904b3dcdeba1  # v1.1.2
+        uses: soulteary/go-test-report-action@2760569379a1c95a195c602872ba00cd61495d89  # v1.1.3
         with:
           directory: "."
           packages: "./..."
           race: "true"
           coverage_threshold: "95"
           test_args: "-count=1"
-          version: "v1.1.2"
+          version: "v1.1.3"
           cover_mode: "atomic"
           commit: "false"
         if: github.event_name == 'pull_request'
-      - name: Go quality report (v1.1.3)
+      - name: Go quality report (v1.1.7)
         if: "!cancelled() && (github.event_name == 'pull_request') && steps.report_cleanup.outcome == 'success'"
         id: go_report_card
-        uses: soulteary/goreportcard-action@fc43049a5fe61c3313294d217c2a783f375a7970  # v1.1.3
+        uses: soulteary/goreportcard-action@9744d0297ca0116cd4ef83e4ff6f3ba42a65a24d  # v1.1.7
         with:
           directory: "."
-          version: "v1.1.3"
+          version: "v1.1.7"
           threshold: "0"
           report: "true"
           commit: "false"
       - name: Restore project Go toolchain
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -131,7 +131,7 @@ jobs:
       - name: Require 95 percent statement coverage
         run: awk -f .github/scripts/check-coverage.awk coverage.out
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: coverage.out
@@ -140,7 +140,7 @@ jobs:
   # 完整的桌面应用构建：在 macOS 上用项目真实的构建链（task + wails3 + bun）产出原生二进制与 .app 包。
       - name: Upload read-only PR quality evidence
         if: "always() && steps.report_cleanup.outcome == 'success' && ((github.event_name == 'pull_request'))"
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pr-go-quality-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -159,11 +159,11 @@ jobs:
     name: Build macOS app
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # build:native 用 `git describe` 注入版本号，需要完整历史与 tag。
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: true
@@ -174,7 +174,7 @@ jobs:
 
       - name: Upload native integration evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-storage-${{ github.run_id }}
           path: native-storage-tests.json
@@ -182,11 +182,11 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
+          bun-version: 1.4.5
 
       - name: Install Wails3 CLI
         # wails3 自带 task 运行器，无需额外安装 go-task。
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.28
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 
       - name: Package runnable .app bundle
         # package 任务会先 build（生成 bindings、前端、原生二进制），再打成可运行的 .app（含 ad-hoc 签名）。
@@ -202,7 +202,7 @@ jobs:
           ditto -c -k --keepParent kakapo.app "kakapo-${{ runner.arch }}.app.zip"
 
       - name: Upload runnable app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: kakapo-darwin-${{ runner.arch }}
           path: bin/kakapo-${{ runner.arch }}.app.zip
