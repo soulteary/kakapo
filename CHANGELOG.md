@@ -1,5 +1,11 @@
 # Changelog
 
+## v2026.11.26 - 2026-11-26
+
+Update the build to Go 1.27.4, Wails v3.1.0 and Bun 1.4.5 with the current frontend/system dependencies. This replaces the previous Wails beta build baseline. Existing credential recovery markers and storage safety boundaries remain applicable; this release does not introduce a new data migration. The macOS universal bundle retains an ad-hoc signature; it is not Developer ID notarization.
+
+
+
 ## v2026.11.02
 
 - Require native macOS storage/Keychain integration, strict ad-hoc signature verification and both universal architectures before release.
